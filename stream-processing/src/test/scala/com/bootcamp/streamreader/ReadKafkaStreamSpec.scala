@@ -6,6 +6,22 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 
 
+//class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
+//
+//  test("Basic Kafka stream test") {
+//    val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 0, zooKeeperPort = 0)
+//
+//    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
+//      // now a kafka broker is listening on actualConfig.kafkaPort
+////      val stream = new PlayerDataConsumer
+//
+//      publishStringMessageToKafka("topic", "message")
+//      consumeFirstStringMessageFrom("topic") shouldBe "message"
+////      stream.start.unsafeRunSync()
+//    }
+//  }
+//}
+
 class MySpec extends AnyWordSpecLike with Matchers with EmbeddedKafka {
 
   "runs with embedded kafka on arbitrary available ports" should {
@@ -15,9 +31,12 @@ class MySpec extends AnyWordSpecLike with Matchers with EmbeddedKafka {
 
       withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
         // now a kafka broker is listening on actualConfig.kafkaPort
+        println("I am HEREEE xxxxxxxxxxxxxxxxxxx")
         publishStringMessageToKafka("topic", "message")
-        consumeFirstStringMessageFrom("topic") shouldBe "message"
+        consumeFirstStringMessageFrom("topic") shouldBe "message2"
       }
     }
   }
 }
+
+

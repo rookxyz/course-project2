@@ -36,9 +36,6 @@ lazy val http = (project in file("recommender-service"))
       "org.typelevel"   %% "munit-cats-effect-3" % MunitCatsEffectVersion % Test,
       "ch.qos.logback"  %  "logback-classic"     % LogbackVersion,
     ),
-    addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.13.0" cross CrossVersion.full),
-    addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1"),
-    testFrameworks += new TestFramework("munit.Framework")
   )
 
 lazy val streams = (project in file("stream-processing"))
@@ -52,10 +49,11 @@ lazy val streams = (project in file("stream-processing"))
       "co.fs2" %% "fs2-core" % fs2Version,
       "org.typelevel" %% "cats-effect" % catsEffectVersion,
       "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-      "io.github.embeddedkafka" %% "embedded-kafka" % "3.0.0" % Test
+      "io.github.embeddedkafka" %% "embedded-kafka" % "3.0.0" % Test,
+      "org.scalameta"   %% "munit"               % MunitVersion           % Test,
+      "org.typelevel"   %% "munit-cats-effect-3" % MunitCatsEffectVersion % Test,
 
     ),
-    libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.10",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.10" % "test"
 
   )
