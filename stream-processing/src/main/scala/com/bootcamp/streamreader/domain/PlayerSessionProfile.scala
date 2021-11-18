@@ -7,8 +7,10 @@ final case class GameTypeActivity(
                              payoutEur: Money
                              )
 final case class PlayerGamePlay(gamePlay: Map[GameType, GameTypeActivity])
+final case class Cluster(value: Int) extends AnyVal
 
 final case class PlayerSessionProfile(
   userId: UserId,
+  playerCluster: Cluster,
   gamePlay: PlayerGamePlay
                                      )
