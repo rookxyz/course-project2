@@ -1,32 +1,48 @@
 package com.bootcamp.streamreader
 
 import cats.effect.{ExitCode, IO, IOApp}
+import com.bootcamp.streamreader.domain.{KafkaConfig, Port}
 import fs2.kafka._
+import pureconfig.ConfigReader.Result
+
 import scala.concurrent.duration._
+import pureconfig._
+import pureconfig.generic.auto._
 
 object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
-    val stream = new PlayerDataConsumer
-    stream.start.as(ExitCode.Success)
+    ConfigSource.default.load[KafkaConfig] match {
+      case Left(value) => IO.unit.as(ExitCode.Error)
+      case Right(config) => {
+        val stream = new PlayerDataConsumer(config)
+        stream.start.as(ExitCode.Success)
+      }
+    }
+
 
   }
 }
 
-class PlayerDataConsumer {
+class PlayerDataConsumer(kafkaConfig: KafkaConfig) {
+  def this() {this(KafkaConfig("127.0.0.1", Port(0), "topic"))}
+
   def processRecord(record: ConsumerRecord[String, String]): IO[(String, String)] =
     IO.pure(record.key -> record.value)
 
-  def start = stream.compile.drain
+  def start: IO[Unit] = stream.compile.drain
 
-  val consumerSettings =
+  val port: Port = kafkaConfig.port
+
+  val consumerSettings: ConsumerSettings[IO, String, String] =
     ConsumerSettings[IO, String, String]
       .withAutoOffsetReset(AutoOffsetReset.Earliest)
-      .withBootstrapServers("localhost:9001")
+      .withBootstrapServers(s"${kafkaConfig.host}:${port.value}")
       .withGroupId("group")
+
 
   val stream: fs2.Stream[IO, Unit] =
     KafkaConsumer.stream(consumerSettings)
-      .subscribeTo("topic")
+      .subscribeTo(kafkaConfig.topic)
       .records
       .mapAsync(25) { committable =>
         processRecord(committable.record)

@@ -1,69 +1,46 @@
 package com.bootcamp.streamreader
 
+import com.bootcamp.streamreader.domain.{KafkaConfig, Port}
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import org.apache.kafka.common.serialization.StringSerializer
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
-
+import scala.concurrent.duration._
 
 class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
 
   test("Basic Kafka stream test") {
-    val customConsumerConfig = Map("max.partition.fetch.bytes" -> "2000000",
-                                            "log.cleaner.enable" -> "false",
-                                            "log.dirs" -> "./target/embedded-kafka/exampleService")
-    val customBrokerConfig = Map("replica.fetch.max.bytes" -> "2000000",
-      "message.max.bytes" -> "2000000",
-    "log.dirs" -> "./target/embedded-kafka/exampleService")
-            val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 0,
-              zooKeeperPort = 0,
-              customConsumerProperties = customConsumerConfig,
-              customBrokerProperties = customBrokerConfig)
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val consumer = new PlayerDataConsumer(kafkaConfig)
+    val config = EmbeddedKafkaConfig(
+      kafkaPort = consumer.port.value,
+      customConsumerProperties = consumer.consumerSettings.properties
+    )
+    val start = consumer.stream.take(1).compile.toList // read one record and exit
 
-    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
-      // now a kafka broker is listening on actualConfig.kafkaPort
-      val stream = new PlayerDataConsumer
+    withRunningKafkaOnFoundPort(config) { implicit config =>
+      publishToKafka("topic", "key", "message1")(
+        config,
+        new StringSerializer,
+        new StringSerializer
+      )
+      publishToKafka("topic", "key", "message2")(
+        config,
+        new StringSerializer,
+        new StringSerializer
+      )
+      publishToKafka("topic", "key", "message3")(
+        config,
+        new StringSerializer,
+        new StringSerializer
+      )
 
-      publishStringMessageToKafka("topic", "message")
-      consumeFirstStringMessageFrom("topic") shouldBe "message"
-      stream.start.unsafeRunSync()
+      start.unsafeRunTimed(10.seconds).get.length shouldBe 1
     }
   }
 }
-////
-//class MySpec extends AnyWordSpecLike with Matchers with BeforeAndAfter with EmbeddedKafka {
-//
-//  "runs with embedded kafka on arbitrary available ports" should {
-//
-//    "work" in {
-//
-//      val customConsumerConfig = Map("max.partition.fetch.bytes" -> "2000000",
-//                                      "log.cleaner.enable" -> "false",
-//                                      "log.dir" -> "target/embedded-kafka/exampleService")
-//      val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 0, zooKeeperPort = 0, customConsumerProperties = customConsumerConfig)
-//      withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
-//        // now a kafka broker is listening on actualConfig.kafkaPort
-//        println("I am HEREEE xxxxxxxxxxxxxxxxxxx")
-//        publishStringMessageToKafka("topic", "message")
-//        consumeFirstStringMessageFrom("topic") shouldBe "message"
-//      }
-//    }
-//  }
-//
-//  "runs with embedded kafka" should {
-//
-//    "work" in {
-//      EmbeddedKafka.start()
-//
-//      // ... code goes here
-//
-//      EmbeddedKafka.stop()
-//    }
-//    after {
-//      EmbeddedKafka.stop()
-//    }
-//  }
-//}
-
-
