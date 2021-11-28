@@ -1,9 +1,14 @@
 package com.bootcamp.streamreader.domain
 
-case class Port(value: Int) extends AnyVal
+final case class Port(value: Int) extends AnyVal
 
-case class KafkaConfig (
+
+final case class KafkaConfig (
                        host: String,
                        port: Port,
                        topic: String
                        )
+
+final case class AppConfig (
+                           kafka: KafkaConfig
+                           )
