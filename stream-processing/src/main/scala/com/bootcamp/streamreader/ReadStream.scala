@@ -2,7 +2,7 @@ package com.bootcamp.streamreader
 
 import cats.Monoid
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.domain.PlayerGameRoundDomain._
+import com.bootcamp.streamreader.domain
 import cats.effect.{ExitCode, IO, IOApp}
 import com.bootcamp.streamreader.domain._
 import com.typesafe.config.ConfigFactory
