@@ -19,6 +19,7 @@ object GameType {
 
   case object UnknownGameType extends GameType // TODO Log warning in this case
 
-  implicit val gameTypeCodec: Codec[GameType] = extras.semiauto.deriveEnumerationCodec
+  implicit val gameTypeCodec: Codec[GameType] =
+    extras.semiauto.deriveEnumerationCodec
+  // TODO how to assign default UnknownGameType if new game type?
 }
-

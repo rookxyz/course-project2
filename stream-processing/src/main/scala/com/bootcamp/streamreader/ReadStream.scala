@@ -1,10 +1,12 @@
 package com.bootcamp.streamreader
 
 import cats.effect.kernel.Ref
+import cats.effect.unsafe.implicits.global
 import cats.implicits._
 import cats.effect.{ExitCode, IO, IOApp}
 import com.bootcamp.streamreader.domain._
 import com.typesafe.config.ConfigFactory
+import fs2.Chunk
 import fs2.kafka._
 import io.circe.parser._
 
@@ -128,6 +130,10 @@ object Main extends IOApp {
         }
       }
 
+      /*
+Read multiple players by Id, if playerId is not in repository,
+then get cluster for playerId and create an empty PlayerSessionProfile
+       */
       def readBySeqOfPlayerId(
           playerIds: Seq[PlayerId]
       ): IO[Seq[PlayerSessionProfile]] = {
@@ -161,7 +167,7 @@ object Main extends IOApp {
     def processNewPlayerProfiles(profiles: Seq[PlayerSessionProfile]): IO[Unit]
     def createPlayerSessionProfile(
         playerRounds: Seq[(PlayerId, PlayerGameRound)]
-    ): Seq[PlayerSessionProfile]
+    ): IO[Seq[PlayerSessionProfile]]
   }
 
   object PlayerProfileStateHandler {
@@ -172,12 +178,13 @@ object Main extends IOApp {
         override def processNewPlayerProfiles(
             playerProfiles: Seq[PlayerSessionProfile]
         ): IO[Unit] = {
+          println(playerProfiles)
           state.put(playerProfiles)
         }
 
         def createPlayerSessionProfile(
             playerRounds: Seq[(PlayerId, PlayerGameRound)]
-        ): Seq[PlayerSessionProfile] = {
+        ): IO[Seq[PlayerSessionProfile]] = IO {
           playerRounds
             .groupBy(_._1)
             .map { case (playerId, playerRecords) =>
@@ -229,38 +236,68 @@ object Main extends IOApp {
           25,
           2.seconds
         ) // TODO needs to be configurable default 25, 15
-        .evalMap { chunk =>
-          // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
-          // 2) test it works
-          // 3) in mem state (Ref) - 11) init from db if empty.
-          //   3.1) last game ids
-          // 4) write to db
-          // 5) sequenceNumber
-          // check sequenceNumber is correct
-          // check last sequenceNumber in state
-          // restore state from db if there is gap
-          val playerRounds: Seq[(PlayerId, PlayerGameRound)] = {
-            chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) {
-              case (a, b) =>
-                val playerId = PlayerId(b.record.key)
-                val playerGameRound =
-                  decode[PlayerGameRound](b.record.value) match {
-                    case Left(_) =>
-                      throw new RuntimeException(
-                        "Could not create PlayerGameRound from Json"
-                      ) // TODO Log unsuccessful decode
-                    case Right(playerGameRound) => playerGameRound
+//        .evalTap(i => IO { println(i) })
+        .evalMap {
+          chunk: Chunk[CommittableConsumerRecord[IO, String, String]] =>
+            // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
+            // 2) test it works
+            // 3) in mem state (Ref) - 11) init from db if empty.
+            //   3.1) last game ids
+            // 4) write to db
+            // TODO 5) sequenceNumber
+            // TODO check sequenceNumber is correct
+            // TODO check last sequenceNumber in state
+            // TODO restore state from db if there is gap
+            val playerRounds: Seq[(PlayerId, PlayerGameRound)] = {
+              chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) {
+                case (a, b) =>
+                  val playerId = PlayerId(b.record.key)
+                  val playerGameRound = {
+                    decode[PlayerGameRound](b.record.value) match {
+                      case Left(e) =>
+                        throw new RuntimeException(
+                          s"Error: Could not create PlayerGameRound from Json. $e"
+                        ) // TODO Log unsuccessful decode
+                      case Right(playerGameRound) => playerGameRound
+                    }
                   }
-                a :+ (playerId, playerGameRound)
+                  a :+ (playerId, playerGameRound)
+              }
             }
-          }
 
-          playerProfileHandler
-            .processNewPlayerProfiles(
-              playerProfileHandler.createPlayerSessionProfile(playerRounds)
-            ) // TODO can this be shortened and made pretty like with .andThen
-            .map(_ => chunk.map(_.offset))
+            // TODO why none of the code below seems to be running?
+            val y = createPlayerSessionProfile2(playerRounds)
+            val x = for {
+              _ <- playerProfileHandler
+                .processNewPlayerProfiles(y)
+            } yield ()
+            x.map(_ => chunk.map(_.offset))
         }
         .evalMap(x => CommittableOffsetBatch.fromFoldable(x).commit)
+
+    // TODO remove once understood why IO code is not running
+    def createPlayerSessionProfile2(
+        playerRounds: Seq[(PlayerId, PlayerGameRound)]
+    ): Seq[PlayerSessionProfile] = {
+      println(playerRounds)
+      playerRounds
+        .groupBy(_._1)
+        .map { case (playerId, playerRecords) =>
+          val gamePlay: Map[GameType, GameTypeActivity] = playerRecords
+            .map(_._2)
+            .groupBy(_.gameType)
+            .foldLeft(Map.empty[GameType, GameTypeActivity])((a, c) => {
+              a + (c._1 -> GameTypeActivity(c._2))
+            })
+          PlayerSessionProfile(
+            playerId,
+            Cluster(
+              0
+            ), // TODO perhaps cluster should be an Option, so that no need to fill it here
+            PlayerGamePlay(gamePlay)
+          )
+        }
+        .toSeq
+    }
   }
 }
