@@ -35,6 +35,7 @@ object Dependencies {
       "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,
       "co.fs2" %% "fs2-core" % fs2Version,
       "io.circe"        %% "circe-generic"       % circeVersion,
+      "io.circe"        %% "circe-generic-extras"       % circeVersion,
       "io.circe"        %% "circe-fs2"       % circeFs2Version,
       "io.circe" %% "circe-parser"       % circeVersion,
       "org.typelevel" %% "cats-effect" % catsEffectVersion,

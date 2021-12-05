@@ -2,7 +2,6 @@ package com.bootcamp.streamreader
 
 import cats.Monoid
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.domain
 import cats.effect.{ExitCode, IO, IOApp}
 import com.bootcamp.streamreader.domain._
 import com.typesafe.config.ConfigFactory
@@ -18,7 +17,9 @@ import scala.collection.immutable
 object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
 
-    ConfigSource.fromConfig(ConfigFactory.load("application")).load[AppConfig] match {
+    ConfigSource
+      .fromConfig(ConfigFactory.load("application"))
+      .load[AppConfig] match {
       case Left(_) => IO.unit.as(ExitCode.Error)
       case Right(config) => {
         val stream = new PlayerDataConsumer(config.kafka)
@@ -37,57 +38,91 @@ object PlayerService {
     println(data)
     IO.unit
   }
-  def test(expected: Seq[PlayerSessionProfile]): PlayerService = (data: Seq[PlayerSessionProfile]) => {
-    if (expected != data) IO.raiseError(new RuntimeException("Player session profiles do not match the expected!"))
-    else {println("DATA MATCH!")
-      IO.unit}
-  }
-  val state = Ref.of[IO, Seq[PlayerSessionProfile]](Seq.empty) // TODO should state be in the PlayerService?
+  def test(expected: Seq[PlayerSessionProfile]): PlayerService =
+    (data: Seq[PlayerSessionProfile]) => {
+      if (expected != data)
+        IO.raiseError(
+          new RuntimeException(
+            "Player session profiles do not match the expected!"
+          )
+        )
+      else {
+        println("DATA MATCH!")
+        IO.unit
+      }
+    }
+  val state = Ref.of[IO, Seq[PlayerSessionProfile]](
+    Seq.empty
+  ) // TODO should state be in the PlayerService?
 
-  def createPlayerSessionProfile(playerRounds: Seq[(PlayerId, PlayerGameRound)]): Seq[PlayerSessionProfile] = {
-    playerRounds.groupBy(_._1).map { case (playerId, playerRecords) =>
-      val gamePlay: Map[GameType, GameTypeActivity] = playerRecords
-        .map(_._2)
-        .groupBy(_.gameType)
-        .foldLeft(Map.empty[GameType, GameTypeActivity])((a, c) => {
-          def getGameTypeActivity(activity: Seq[PlayerGameRound]): GameTypeActivity = {
-            val (rounds, stake, payout) = activity.foldLeft(Tuple3[Long, BigDecimal, BigDecimal](0,0,0))((a, c) => (a._1 + 1, a._2 + c.stakeEur.amount, a._3 + c.payoutEur.amount))
-            GameTypeActivity(rounds, Money(stake), Money(payout))
-          }
-          a + (c._1 -> getGameTypeActivity(c._2))
-        })
-      // TODO fix cluster from db
-      PlayerSessionProfile(playerId, Cluster(0), PlayerGamePlay(gamePlay))
-    }.toSeq
+  def createPlayerSessionProfile(
+      playerRounds: Seq[(PlayerId, PlayerGameRound)]
+  ): Seq[PlayerSessionProfile] = {
+    playerRounds
+      .groupBy(_._1)
+      .map { case (playerId, playerRecords) =>
+        val gamePlay: Map[GameType, GameTypeActivity] = playerRecords
+          .map(_._2)
+          .groupBy(_.gameType)
+          .foldLeft(Map.empty[GameType, GameTypeActivity])((a, c) => {
+            def getGameTypeActivity(
+                activity: Seq[PlayerGameRound]
+            ): GameTypeActivity = {
+              val (rounds, stake, payout) = activity.foldLeft(
+                Tuple3[Long, BigDecimal, BigDecimal](0, 0, 0)
+              )((a, c) =>
+                (a._1 + 1, a._2 + c.stakeEur.amount, a._3 + c.payoutEur.amount)
+              )
+              GameTypeActivity(rounds, Money(stake), Money(payout))
+            }
+            a + (c._1 -> getGameTypeActivity(c._2))
+          })
+        // TODO fix cluster from db
+        PlayerSessionProfile(playerId, Cluster(0), PlayerGamePlay(gamePlay))
+      }
+      .toSeq
   }
-  implicit val playerGamePlayAdditionMonoid: Monoid[PlayerGamePlay] = new Monoid[PlayerGamePlay] {
-    override def empty: PlayerGamePlay = PlayerGamePlay(Map.empty[GameType, GameTypeActivity])
+  implicit val playerGamePlayAdditionMonoid: Monoid[PlayerGamePlay] =
+    new Monoid[PlayerGamePlay] {
+      override def empty: PlayerGamePlay = PlayerGamePlay(
+        Map.empty[GameType, GameTypeActivity]
+      )
 
-    override def combine(x: PlayerGamePlay, y: PlayerGamePlay): PlayerGamePlay = ???
-  }
+      override def combine(
+          x: PlayerGamePlay,
+          y: PlayerGamePlay
+      ): PlayerGamePlay = ???
+    }
 }
 
-class PlayerDataConsumer(kafkaConfig: KafkaConfig = KafkaConfig("127.0.0.1", Port(0), "topic")) {
+class PlayerDataConsumer(
+    kafkaConfig: KafkaConfig = KafkaConfig("127.0.0.1", Port(0), "topic")
+) {
 
   def start: IO[Unit] = stream.compile.drain
 
   val port: Port = kafkaConfig.port
 
   val consumerSettings: ConsumerSettings[IO, String, String] =
-    ConsumerSettings(keyDeserializer = Deserializer[IO, String],
-      valueDeserializer = Deserializer[IO, String]) // TODO check if can decode to PlayerGameRound here
+    ConsumerSettings(
+      keyDeserializer = Deserializer[IO, String],
+      valueDeserializer = Deserializer[IO, String]
+    ) // TODO check if can decode to PlayerGameRound here
       .withAutoOffsetReset(AutoOffsetReset.Earliest)
       .withBootstrapServers(s"${kafkaConfig.host}:${port.value}")
       .withGroupId("group1") // TODO get from config
       .withClientId("client1") // TODO get from config
 
   val stream =
-    KafkaConsumer.stream(consumerSettings)
+    KafkaConsumer
+      .stream(consumerSettings)
       .subscribeTo(kafkaConfig.topic)
       .records
-      .groupWithin(25, 2.seconds)  // TODO needs to be configurable default 25, 15
+      .groupWithin(
+        25,
+        2.seconds
+      ) // TODO needs to be configurable default 25, 15
       .map { chunk =>
-
         // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
         // 2) test it works
         // 3) in mem state (Ref) - 11) init from db if empty.
@@ -100,14 +135,20 @@ class PlayerDataConsumer(kafkaConfig: KafkaConfig = KafkaConfig("127.0.0.1", Por
         val playerRounds: Seq[(PlayerId, PlayerGameRound)] =
           chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) {
             case (a, b) =>
-                val playerId = PlayerId(b.record.key)
-                val playerGameRound = decode[PlayerGameRound](b.record.value) match {
-                  case Left(_) => throw new RuntimeException("Could not create PlayerGameRound from Json") // TODO what should be done here ?
+              val playerId = PlayerId(b.record.key)
+              val playerGameRound =
+                decode[PlayerGameRound](b.record.value) match {
+                  case Left(_) =>
+                    throw new RuntimeException(
+                      "Could not create PlayerGameRound from Json"
+                    ) // TODO what should be done here ?
                   case Right(playerGameRound) => playerGameRound
                 }
-                a :+ (playerId, playerGameRound)
-            }
-        PlayerService.empty(PlayerService.createPlayerSessionProfile(playerRounds))
+              a :+ (playerId, playerGameRound)
+          }
+        PlayerService.empty(
+          PlayerService.createPlayerSessionProfile(playerRounds)
+        )
         // TODO check this - how should the PlayerService be used and instantiated in Main?
         // Now this is an IO, not sure how to use it further on.
 
