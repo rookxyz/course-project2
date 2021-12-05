@@ -1,10 +1,15 @@
 package com.bootcamp.streamreader
 
-import com.bootcamp.streamreader.domain.PlayerGameRoundDomain.GameType.{Roulette, UnknownGameType}
-import com.bootcamp.streamreader.domain.PlayerGameRoundDomain.{Money, PlayerId}
-import com.bootcamp.streamreader.domain.{Cluster, GameTypeActivity, KafkaConfig, PlayerGamePlay, PlayerSessionProfile, Port}
+import com.bootcamp.streamreader.domain.{
+  Cluster,
+  GameTypeActivity,
+  KafkaConfig,
+  PlayerGamePlay,
+  PlayerSessionProfile,
+  Port
+}
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.scalatest.BeforeAndAfter
+
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
@@ -23,7 +28,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
       kafkaPort = consumer.port.value,
       customConsumerProperties = consumer.consumerSettings.properties
     )
-    val start = consumer.stream.take(1).compile.toList // read one record and exit
+    val start =
+      consumer.stream.take(1).compile.toList // read one record and exit
 
     withRunningKafkaOnFoundPort(config) { implicit config =>
       publishToKafka("topic", "p1", "message1")(
@@ -31,7 +37,9 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
         new StringSerializer,
         new StringSerializer
       )
-      an [RuntimeException] should be thrownBy start.unsafeRunTimed(2.seconds).get
+      an[RuntimeException] should be thrownBy start
+        .unsafeRunTimed(2.seconds)
+        .get
     }
   }
 
@@ -42,7 +50,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
       kafkaPort = consumer.port.value,
       customConsumerProperties = consumer.consumerSettings.properties
     )
-    val start = consumer.stream.take(1).compile.toList // read one record and exit
+    val start =
+      consumer.stream.take(1).compile.toList // read one record and exit
 
     val message1 =
       """
@@ -75,7 +84,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
       kafkaPort = consumer.port.value,
       customConsumerProperties = consumer.consumerSettings.properties
     )
-    val start = consumer.stream.take(1).compile.toList // read one record and exit
+    val start =
+      consumer.stream.take(1).compile.toList // read one record and exit
 
     val message1 =
       """
@@ -143,7 +153,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
       kafkaPort = consumer.port.value,
       customConsumerProperties = consumer.consumerSettings.properties
     )
-    val start = consumer.stream.take(1).compile.toList // read one record and exit
+    val start =
+      consumer.stream.take(1).compile.toList // read one record and exit
 
     val message1 =
       """
@@ -204,8 +215,78 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
       start.unsafeRunTimed(10.seconds)
 
       // TODO how to get the output from stream processing to compare to fixed expected value?
-      PlayerService.test(List(PlayerSessionProfile(PlayerId("p1"),Cluster(0),PlayerGamePlay(Map(UnknownGameType -> GameTypeActivity(1,Money(111.11),Money(222.22))))), PlayerSessionProfile(PlayerId("p2"),Cluster(0),PlayerGamePlay(Map(UnknownGameType -> GameTypeActivity(1,Money(111.11),Money(222.22))))), PlayerSessionProfile(PlayerId("p3"),Cluster(0),PlayerGamePlay(Map(Roulette -> GameTypeActivity(1,Money(111.11),Money(222.22))))))
-      )(List(PlayerSessionProfile(PlayerId("p1"),Cluster(0),PlayerGamePlay(Map(UnknownGameType -> GameTypeActivity(1,Money(111.11),Money(222.22))))), PlayerSessionProfile(PlayerId("p2"),Cluster(0),PlayerGamePlay(Map(UnknownGameType -> GameTypeActivity(1,Money(111.11),Money(222.22))))), PlayerSessionProfile(PlayerId("p3"),Cluster(0),PlayerGamePlay(Map(Roulette -> GameTypeActivity(1,Money(111.11),Money(222.22))))))
+      PlayerService.test(
+        List(
+          PlayerSessionProfile(
+            PlayerId("p1"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(
+                UnknownGameType -> GameTypeActivity(
+                  1,
+                  Money(111.11),
+                  Money(222.22)
+                )
+              )
+            )
+          ),
+          PlayerSessionProfile(
+            PlayerId("p2"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(
+                UnknownGameType -> GameTypeActivity(
+                  1,
+                  Money(111.11),
+                  Money(222.22)
+                )
+              )
+            )
+          ),
+          PlayerSessionProfile(
+            PlayerId("p3"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(Roulette -> GameTypeActivity(1, Money(111.11), Money(222.22)))
+            )
+          )
+        )
+      )(
+        List(
+          PlayerSessionProfile(
+            PlayerId("p1"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(
+                UnknownGameType -> GameTypeActivity(
+                  1,
+                  Money(111.11),
+                  Money(222.22)
+                )
+              )
+            )
+          ),
+          PlayerSessionProfile(
+            PlayerId("p2"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(
+                UnknownGameType -> GameTypeActivity(
+                  1,
+                  Money(111.11),
+                  Money(222.22)
+                )
+              )
+            )
+          ),
+          PlayerSessionProfile(
+            PlayerId("p3"),
+            Cluster(0),
+            PlayerGamePlay(
+              Map(Roulette -> GameTypeActivity(1, Money(111.11), Money(222.22)))
+            )
+          )
+        )
       )
     }
   }
