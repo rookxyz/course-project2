@@ -13,6 +13,7 @@ import pureconfig._
 import pureconfig.generic.auto._
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 
 object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
@@ -26,7 +27,7 @@ object Main extends IOApp {
         Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap {
           ref =>
             val state = new PlayerState(ref, repository)
-            val service = new PlayerProfileStateHandler(state)
+            val service = PlayerProfileStateHandler(state)
             val stream = new PlayerDataConsumer(config.kafka, service)
             stream.start.as(ExitCode.Success)
         }
@@ -41,7 +42,30 @@ object Main extends IOApp {
       ref: Ref[IO, Map[PlayerId, PlayerSessionProfile]],
       playerRepository: PlayerRepository
   ) {
-    // put
+    /*
+    Put updates the internal state and writes changed players to the repository
+     */
+    // TODO write changes to repository only periodically
+    def put(playerProfiles: Seq[PlayerSessionProfile]): IO[Unit] = {
+      for {
+        p <- IO { playerProfiles.map(_.playerId) }
+        s <- ref.get
+        missing <- IO { p.filterNot(k => s.keySet.contains(k)) }
+        repositoryDataForMissing <-
+          playerRepository.readBySeqOfPlayerId(missing)
+        ss <- ref.updateAndGet(state => {
+          state |+| (repositoryDataForMissing ++ playerProfiles) // Mission on the left side so that cluster data is accurate
+            .map(item => (item.playerId -> item))
+            .toMap
+        })
+        changedProfiles = ss
+          .filterKeys(k => p.contains(k))
+          .values
+          .toSeq
+        _ <- playerRepository.store(changedProfiles)
+      } yield ()
+    }
+
     // get
   }
 
@@ -49,14 +73,21 @@ object Main extends IOApp {
   trait PlayerRepository {
     def store(data: Seq[PlayerSessionProfile]): IO[Unit]
 
-    def readByUserId(userId: PlayerId): IO[Option[PlayerSessionProfile]]
+    def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]]
+
+    def readBySeqOfPlayerId(
+        playerIds: Seq[PlayerId]
+    ): IO[Seq[PlayerSessionProfile]]
+
+    def readClusterByPlayerId(
+        playerId: PlayerId
+    ): Option[Cluster] // TODO should this be in IO, if so
+    // How to call it from within another PlayerRepository function
   }
 
   trait InMemPlayerRepository extends PlayerRepository {
     val storage: TrieMap[PlayerId, PlayerSessionProfile]
   }
-
-  // service, handler - bad naming
 
   object PlayerRepository {
     def apply(): PlayerRepository = {
@@ -66,8 +97,16 @@ object Main extends IOApp {
     def empty: PlayerRepository = new PlayerRepository {
       def store(data: Seq[PlayerSessionProfile]): IO[Unit] = IO.unit
 
-      def readByUserId(userId: PlayerId): IO[Option[PlayerSessionProfile]] =
+      def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
         IO.pure(None)
+
+      def readBySeqOfPlayerId(
+          playerIds: Seq[PlayerId]
+      ): IO[Seq[PlayerSessionProfile]] =
+        IO.pure(Seq.empty[PlayerSessionProfile])
+
+      def readClusterByPlayerId(playerId: PlayerId): Option[Cluster] =
+        Option.empty[Cluster]
     }
 
     def inMem: InMemPlayerRepository = new InMemPlayerRepository {
@@ -81,31 +120,60 @@ object Main extends IOApp {
           }
         }
 
-      def readByUserId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
+      def readByPlayerId(
+          playerId: PlayerId
+      ): IO[Option[PlayerSessionProfile]] = {
         IO {
           storage.get(playerId)
         }
+      }
+
+      def readBySeqOfPlayerId(
+          playerIds: Seq[PlayerId]
+      ): IO[Seq[PlayerSessionProfile]] = {
+        playerIds.toList
+          .traverse((p: PlayerId) => readByPlayerId(p))
+          .map(l => playerIds zip l)
+          .map(i =>
+            i.map {
+              case (playerId, None) => {
+                val cluster = readClusterByPlayerId(playerId)
+                PlayerSessionProfile(
+                  playerId,
+                  cluster.getOrElse(Cluster(0)),
+                  PlayerGamePlay.empty()
+                )
+              }
+              case (_, Some(profile)) => profile
+            }
+          )
+
+      }
+
+      def readClusterByPlayerId(playerId: PlayerId): Option[Cluster] =
+        // TODO replace with actual implementation
+        Some(Cluster(1))
     }
   }
 
-  //// OOOLD version
   trait PlayerProfileStateHandler {
-    val state: PlayerState
+    val state: PlayerState // TODO Check if this value needs to be defined
     def processNewPlayerProfiles(profiles: Seq[PlayerSessionProfile]): IO[Unit]
     def createPlayerSessionProfile(
         playerRounds: Seq[(PlayerId, PlayerGameRound)]
     ): Seq[PlayerSessionProfile]
   }
 
-  // TODO need to discuss the role of the PlayerService, not sure where to implement each of the points
   object PlayerProfileStateHandler {
     def apply(other: PlayerState): PlayerProfileStateHandler =
       new PlayerProfileStateHandler {
-        override val state: PlayerState = other
+        override val state: PlayerState = other // TODO check if this is OK
 
         override def processNewPlayerProfiles(
-            profiles: Seq[PlayerSessionProfile]
-        ): IO[Unit] = ???
+            playerProfiles: Seq[PlayerSessionProfile]
+        ): IO[Unit] = {
+          state.put(playerProfiles)
+        }
 
         def createPlayerSessionProfile(
             playerRounds: Seq[(PlayerId, PlayerGameRound)]
@@ -119,10 +187,11 @@ object Main extends IOApp {
                 .foldLeft(Map.empty[GameType, GameTypeActivity])((a, c) => {
                   a + (c._1 -> GameTypeActivity(c._2))
                 })
-              // TODO fix initially get cluster from db
               PlayerSessionProfile(
                 playerId,
-                Cluster(0),
+                Cluster(
+                  0
+                ), // TODO perhaps cluster should be an Option, so that no need to fill it here
                 PlayerGamePlay(gamePlay)
               )
             }
@@ -185,9 +254,11 @@ object Main extends IOApp {
                 a :+ (playerId, playerGameRound)
             }
           }
+
           playerProfileHandler
-            .createPlayerSessionProfile(playerRounds)
-            .map(playerProfileHandler.processNewPlayerProfiles)
+            .processNewPlayerProfiles(
+              playerProfileHandler.createPlayerSessionProfile(playerRounds)
+            ) // TODO can this be shortened and made pretty like with .andThen
             .map(_ => chunk.map(_.offset))
         }
         .evalMap(x => CommittableOffsetBatch.fromFoldable(x).commit)

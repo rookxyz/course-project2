@@ -1,6 +1,7 @@
 package com.bootcamp.streamreader.domain
 
 import cats.Semigroup
+import cats.implicits._
 
 final case class GameTypeActivity(
     gameRounds: Long,
@@ -37,20 +38,24 @@ object GameTypeActivity {
 }
 final case class PlayerGamePlay(gamePlay: Map[GameType, GameTypeActivity])
 
-//object PlayerGamePlay {
-//
-//  implicit val playerGamePlayAdditionMonoid: Monoid[PlayerGamePlay] =
-//    new Monoid[PlayerGamePlay] {
-//      override def empty: PlayerGamePlay = PlayerGamePlay(
-//        Map.empty[GameType, GameTypeActivity]
-//      )
-//
-//      override def combine(
-//          x: PlayerGamePlay,
-//          y: PlayerGamePlay
-//      ): PlayerGamePlay = { ??? }
-//    }
-//}
+object PlayerGamePlay {
+  def empty(): PlayerGamePlay = PlayerGamePlay(
+    Map.empty[GameType, GameTypeActivity]
+  )
+
+  implicit val playerGamePlayAdditionSemigroup: Semigroup[PlayerGamePlay] =
+    new Semigroup[PlayerGamePlay] {
+      override def combine(
+          x: PlayerGamePlay,
+          y: PlayerGamePlay
+      ): PlayerGamePlay = {
+        PlayerGamePlay(
+          Semigroup[Map[GameType, GameTypeActivity]]
+            .combine(x.gamePlay, y.gamePlay)
+        )
+      }
+    }
+}
 
 final case class Cluster(value: Int) extends AnyVal
 
@@ -59,3 +64,18 @@ final case class PlayerSessionProfile(
     playerCluster: Cluster,
     gamePlay: PlayerGamePlay
 )
+
+object PlayerSessionProfile {
+  implicit val playerSessionProfileSemigroup: Semigroup[PlayerSessionProfile] =
+    new Semigroup[PlayerSessionProfile] {
+      override def combine(
+          x: PlayerSessionProfile,
+          y: PlayerSessionProfile
+      ): PlayerSessionProfile =
+        PlayerSessionProfile(
+          x.playerId,
+          x.playerCluster,
+          x.gamePlay |+| y.gamePlay
+        )
+    }
+}
