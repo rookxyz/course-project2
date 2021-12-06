@@ -23,19 +23,20 @@ object RecommenderserviceServer {
       // in the underlying routes.
       httpApp = (
         RecommenderserviceRoutes.helloWorldRoutes[F](helloWorldAlg) <+>
-        RecommenderserviceRoutes.jokeRoutes[F](jokeAlg)
+          RecommenderserviceRoutes.jokeRoutes[F](jokeAlg)
       ).orNotFound
 
       // With Middlewares in place
       finalHttpApp = Logger.httpApp(true, true)(httpApp)
 
       exitCode <- Stream.resource(
-        EmberServerBuilder.default[F]
+        EmberServerBuilder
+          .default[F]
           .withHost(ipv4"0.0.0.0")
           .withPort(port"8080")
           .withHttpApp(finalHttpApp)
           .build >>
-        Resource.eval(Async[F].never)
+          Resource.eval(Async[F].never),
       )
     } yield exitCode
   }.drain

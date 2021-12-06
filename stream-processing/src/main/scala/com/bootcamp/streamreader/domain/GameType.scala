@@ -1,6 +1,7 @@
 package com.bootcamp.streamreader.domain
-import io.circe.Codec
+
 import io.circe.generic.extras
+import io.circe.{Decoder, Encoder}
 
 sealed trait GameType
 
@@ -19,7 +20,11 @@ object GameType {
 
   case object UnknownGameType extends GameType // TODO Log warning in this case
 
-  implicit val gameTypeCodec: Codec[GameType] =
-    extras.semiauto.deriveEnumerationCodec
-  // TODO how to assign default UnknownGameType if new game type?
+  implicit val gameTypeDec: Decoder[GameType] =
+    extras.semiauto
+      .deriveEnumerationDecoder[GameType]
+      .handleErrorWith(_ => Decoder.const(GameType.UnknownGameType))
+
+  implicit val gameTypeEncoder: Encoder[GameType] =
+    extras.semiauto.deriveEnumerationEncoder
 }

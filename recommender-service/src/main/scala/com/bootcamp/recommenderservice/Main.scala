@@ -7,6 +7,5 @@ object Main extends IOApp {
     RecommenderserviceServer.stream[IO].compile.drain.as(ExitCode.Success)
 }
 
-
 // TODO should Resource approach be used to start http server? a resource for connections, something, logging, metrics, etc
 // TODO should have cache ?

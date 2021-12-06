@@ -13,28 +13,25 @@ import pureconfig._
 import pureconfig.generic.auto._
 
 object Main extends IOApp {
-  override def run(args: List[String]): IO[ExitCode] = {
-
+  override def run(args: List[String]): IO[ExitCode] =
+    // TODO bring out to separate service with trait and method fetchAppConfig
     ConfigSource
-      .fromConfig(ConfigFactory.load("application"))
+      .fromConfig(ConfigFactory.load("application")) // separate service
       .load[AppConfig] match {
       case Left(_) => IO.unit.as(ExitCode.Error)
-      case Right(config) => {
+      case Right(config) =>
         val repository = PlayerRepository()
-        Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap {
-          ref =>
-            val state = new PlayerState(ref, repository)
-            val service = PlayerProfileStateHandler(state)
-            val stream = new PlayerDataConsumer(config.kafka, service)
-            stream.start.as(ExitCode.Success)
+        Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+          val state = new UpdatePlayerProfile(ref, repository)
+          val service = InitPlayerProfile(state)
+          val stream = new PlayerDataConsumer(config.kafka, service)
+          stream.start.as(ExitCode.Success)
         }
-      }
     }
-  }
 
   class PlayerDataConsumer(
-      kafkaConfig: KafkaConfig = KafkaConfig("127.0.0.1", Port(0), "topic"),
-      playerProfileHandler: PlayerProfileStateHandler
+    kafkaConfig: KafkaConfig = KafkaConfig("127.0.0.1", Port(0), "topic"),
+    initPlayerProfile: InitPlayerProfile,
   ) {
 
     def start: IO[Unit] = stream.compile.drain
@@ -44,7 +41,7 @@ object Main extends IOApp {
     val consumerSettings: ConsumerSettings[IO, String, String] =
       ConsumerSettings(
         keyDeserializer = Deserializer[IO, String],
-        valueDeserializer = Deserializer[IO, String]
+        valueDeserializer = Deserializer[IO, String],
       ) // TODO check if can decode to PlayerGameRound here
         .withAutoOffsetReset(AutoOffsetReset.Earliest)
         .withBootstrapServers(s"${kafkaConfig.host}:${port.value}")
@@ -58,10 +55,10 @@ object Main extends IOApp {
         .records
         .groupWithin(
           25,
-          2.seconds
+          2.seconds,
         ) // TODO needs to be configurable default 25, 15
 //        .evalTap(i => IO { println(i) })
-        .evalMapChunk { chunk =>
+        .evalMap { chunk =>
           // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
           // 2) test it works
           // 3) in mem state (Ref) - 11) init from db if empty.
@@ -72,29 +69,28 @@ object Main extends IOApp {
           // TODO check last sequenceNumber in state
           // TODO restore state from db if there is gap
           val playerRounds: IO[Seq[(PlayerId, PlayerGameRound)]] = IO {
-            chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) {
-              case (a, b) =>
-                val playerId = PlayerId(b.record.key)
-                val playerGameRound = {
-                  decode[PlayerGameRound](b.record.value) match {
-                    case Left(e) =>
-                      throw new RuntimeException(
-                        s"Error: Could not create PlayerGameRound from Json. $e"
-                      ) // TODO Log unsuccessful decode
-                    case Right(playerGameRound) => playerGameRound
-                  }
+            chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) { case (a, b) =>
+              val playerId = PlayerId(b.record.key)
+              val playerGameRound = {
+                decode[PlayerGameRound](b.record.value) match {
+                  case Left(e) =>
+                    throw new RuntimeException(
+                      s"Error: Could not create PlayerGameRound from Json. $e",
+                    ) // TODO Log unsuccessful decode
+                  case Right(playerGameRound) => playerGameRound
                 }
-                a :+ (playerId, playerGameRound)
+              }
+              a :+ (playerId, playerGameRound)
             }
           }
-          val program = for {
-            r <- playerRounds
-            p <- playerProfileHandler.createPlayerSessionProfile(r)
-            _ <- playerProfileHandler
-              .processNewPlayerProfiles(p)
-          } yield ()
-          program.map(_ => chunk.map(_.offset))
+          playerRounds.flatMap(initPlayerProfile.apply).map(_ => chunk.map(_.offset))
         }
         .evalMap(x => CommittableOffsetBatch.fromFoldable(x).commit)
   }
 }
+
+// p1, p1-1, p1-2, p2-4, p1-3, p2-5
+// p2, p2-2, p2-3, connection problem, issue fixed, p2-6
+
+// 1, 2, 3, 6
+// 12324234, 12324238

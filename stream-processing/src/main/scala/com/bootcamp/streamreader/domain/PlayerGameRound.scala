@@ -6,13 +6,14 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import java.time.Instant
 
 final case class PlayerGameRound(
-    playerId: PlayerId,
-    gameId: GameId,
-    tableId: TableId,
-    gameType: GameType,
-    stakeEur: Money,
-    payoutEur: Money,
-    gameEndedTime: Instant
+  playerId: PlayerId,
+  gameId: GameId,
+  tableId: TableId,
+  gameType: GameType,
+  stakeEur: Money,
+  payoutEur: Money,
+  gameEndedTime: Instant,
+  seqNr: Int,
 )
 
 object PlayerGameRound {

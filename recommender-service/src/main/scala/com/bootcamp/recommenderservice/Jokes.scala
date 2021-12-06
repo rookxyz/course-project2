@@ -11,7 +11,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.circe._
 import org.http4s.Method._
 
-trait Jokes[F[_]]{
+trait Jokes[F[_]] {
   def get: F[Jokes.Joke]
 }
 
@@ -30,12 +30,11 @@ object Jokes {
 
   final case class JokeError(e: Throwable) extends RuntimeException
 
-  def impl[F[_]: Concurrent](C: Client[F]): Jokes[F] = new Jokes[F]{
-    val dsl = new Http4sClientDsl[F]{}
+  def impl[F[_]: Concurrent](C: Client[F]): Jokes[F] = new Jokes[F] {
+    val dsl = new Http4sClientDsl[F] {}
     import dsl._
-    def get: F[Jokes.Joke] = {
+    def get: F[Jokes.Joke] =
       C.expect[Joke](GET(uri"https://icanhazdadjoke.com/"))
-        .adaptError{ case t => JokeError(t)} // Prevent Client Json Decoding Failure Leaking
-    }
+        .adaptError { case t => JokeError(t) } // Prevent Client Json Decoding Failure Leaking
   }
 }
