@@ -2,16 +2,12 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.Main.{
-  PlayerDataConsumer,
-  PlayerProfileStateHandler,
-  PlayerRepository,
-  PlayerState
-}
+import com.bootcamp.streamreader.Main.PlayerDataConsumer
+
 import com.bootcamp.streamreader.domain.GameType._
 import com.bootcamp.streamreader.domain._
 import io.circe.parser.decode
-import io.circe.syntax.EncoderOps
+
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -113,11 +109,22 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
         new StringSerializer
       )
 
-      program.unsafeRunTimed(2.seconds).get.length shouldBe 1
+      program.unsafeRunTimed(10.seconds).get.length shouldBe 1
     }
   }
 
   test("Test repository is updated") {
+
+    val expected = Some(
+      PlayerSessionProfile(
+        PlayerId("p1"),
+        Cluster(1),
+        PlayerGamePlay(
+          Map(Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22)))
+        )
+      )
+    )
+
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
     val repository = PlayerRepository()
     val config = EmbeddedKafkaConfig(
@@ -151,8 +158,10 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
         new StringSerializer
       )
 
-      program.unsafeRunTimed(2.seconds).get
-      println(repository.readByPlayerId(PlayerId("p1")).unsafeRunSync())
+      program.unsafeRunTimed(10.seconds)
+      repository
+        .readByPlayerId(PlayerId("p1"))
+        .unsafeRunSync() shouldBe expected
     }
   }
 
@@ -226,7 +235,9 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka {
         new StringSerializer
       )
 
-      program.unsafeRunTimed(2.seconds)
+      program.unsafeRunTimed(10.seconds)
+
+      // TODO How can I verify the contents of the Ref in a test?
       val x = rref.flatMap(ref =>
         for {
           s <- ref.get
