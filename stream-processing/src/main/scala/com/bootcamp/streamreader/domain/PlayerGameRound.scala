@@ -13,7 +13,7 @@ final case class PlayerGameRound(
   stakeEur: Money,
   payoutEur: Money,
   gameEndedTime: Instant,
-  seqNr: Int,
+  seqNr: Int, // TODO change reated usages
 )
 
 object PlayerGameRound {
