@@ -17,12 +17,14 @@ object Dependencies {
   val scalaTestVersion = "3.2.10"
   val dynamoDbClientVersion = "0.0.9"
   val awsScalaVersion = "0.6.2"
+  val amazonAwsVersion = "1.11.864"
   val testVersion = "test"
 
   val globalLibs = Seq(
-    "com.github.pureconfig" %% "pureconfig"         % pureConfigVersion,
-    "jp.co.bizreach"        %% "aws-dynamodb-scala" % dynamoDbClientVersion,
-    "com.github.seratch"     % "awscala_2.12"       % awsScalaVersion,
+    "com.github.pureconfig" %% "pureconfig"            % pureConfigVersion,
+    "jp.co.bizreach"        %% "aws-dynamodb-scala"    % dynamoDbClientVersion,
+    "com.github.seratch"     % "awscala_2.12"          % awsScalaVersion,
+    "com.amazonaws"          % "aws-java-sdk-dynamodb" % amazonAwsVersion,
   )
 
   val httpLibs = Seq(

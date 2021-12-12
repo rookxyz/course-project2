@@ -76,6 +76,7 @@ object PlayerRepository {
 //    TableUtils.waitUntilActive(db, createdTableMeta.name)
 //    TableUtils.waitUntilActive(db, createdTableMeta2.name)
 //    println(s"Tables in DynamoDB: ${db.tableNames}")
+    println(s"Starting to create Table objects")
     object PlayerProfileTable extends DynamoTable {
       val table = config.playerProfileTableName
       val playerId = DynamoHashKey[String]("playerId")
@@ -88,6 +89,7 @@ object PlayerRepository {
 //        val cluster = DynamoHashKey[Int]("cluster")
 //      }
     }
+    println(s"Starting to create Table objects2")
     object PlayerClusterTable extends DynamoTable {
       val table = config.clusterTableName
       val playerId = DynamoHashKey[String]("playerId")
@@ -110,22 +112,23 @@ object PlayerRepository {
         }
       }
 
-    def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] = {
-      IO(println(s"Trying to read $playerId from DynamoDB"))
-      IO(
+    def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
+      IO {
+        println(s"Trying to read $playerId from DynamoDB")
         PlayerProfileTable.query
           .filter { t =>
             t.playerId -> DynamoDBCondition.eq(playerId) :: Nil
           }
           .list[PlayerSessionProfile]
-          .headOption,
-      )
-    }
+          .headOption
+
+      }
 
     def readByPlayerIds(
       playerIds: Seq[PlayerId],
     ): IO[Seq[PlayerSessionProfile]] =
       playerIds.toList.traverse { playerId =>
+        println(s"Inside readByPlayerIds")
         for {
           playerProfile <- readByPlayerId(playerId)
           playerCluster <- readClusterByPlayerId(playerId)
