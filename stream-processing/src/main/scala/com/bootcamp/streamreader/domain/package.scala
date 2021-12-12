@@ -18,6 +18,10 @@ package domain {
     def +(other: Money): Money = Money(amount + other.amount)
   }
 
+  final case class SeqNum(num: Long) extends AnyVal {
+    def isNext(other: SeqNum): Boolean = (num + 1) == other.num
+  }
+
   object CommonCodecs {
     implicit final val playerIdCodec: Codec[PlayerId] =
       extras.semiauto.deriveUnwrappedCodec
@@ -33,5 +37,7 @@ package domain {
       Decoder.decodeString.emapTry { str =>
         Try(Instant.parse(str))
       }
+    implicit final val seqNumCodec: Codec[SeqNum] =
+      extras.semiauto.deriveUnwrappedCodec
   }
 }

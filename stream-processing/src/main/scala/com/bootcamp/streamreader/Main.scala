@@ -10,9 +10,9 @@ object Main extends IOApp {
     Configuration.fetchAppConfig match {
       case Left(_) => IO.unit.as(ExitCode.Error)
       case Right(config) =>
-        val repository = PlayerRepository()
+        val repository = PlayerRepository(config.db)
         Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
-          val state = new UpdatePlayerProfile(ref, repository)
+          val state = UpdatePlayerProfile(ref, repository)
           val service = InitPlayerProfile(state)
           val stream = new PlayerDataConsumer(config.kafka, service)
           stream.start.as(ExitCode.Success)

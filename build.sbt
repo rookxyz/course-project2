@@ -25,4 +25,5 @@ lazy val streams = (project in file("stream-processing"))
   .settings(
     name := "stream-processing",
     libraryDependencies ++= streamLibs ++ testLibs,
+    libraryDependencies ++= globalLibs, // TODO remove - added becuase aws was not imoprting
   )

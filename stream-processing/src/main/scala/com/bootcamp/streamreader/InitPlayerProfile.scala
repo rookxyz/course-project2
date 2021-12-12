@@ -11,7 +11,7 @@ object InitPlayerProfile {
   def apply(updatePlayerState: UpdatePlayerProfile): InitPlayerProfile =
     new InitPlayerProfile {
       def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Unit] =
-        updatePlayerState(createPlayerSessionProfile(playerRounds))
+        updatePlayerState.update(createPlayerSessionProfile(playerRounds))
 
       private def createPlayerSessionProfile(
         playerRounds: Seq[(PlayerId, PlayerGameRound)],
@@ -19,6 +19,8 @@ object InitPlayerProfile {
         playerRounds
           .groupBy(_._1)
           .map { case (playerId, playerRecords) =>
+            val minSeqNum = playerRecords.map(_._2.seqNum).minBy(_.num)
+            val maxSeqNum = playerRecords.map(_._2.seqNum).maxBy(_.num)
             val gamePlay: Map[GameType, GameTypeActivity] = playerRecords
               .map(_._2)
               .groupBy(_.gameType)
@@ -27,8 +29,10 @@ object InitPlayerProfile {
               }
             PlayerSessionProfile(
               playerId,
-              Cluster(0),
+              Cluster.Default,
               // TODO perhaps cluster should be an Option, so that no need to fill it here
+              minSeqNum,
+              maxSeqNum,
               PlayerGamePlay(gamePlay),
             )
           }

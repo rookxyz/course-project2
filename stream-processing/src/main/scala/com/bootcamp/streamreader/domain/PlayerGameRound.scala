@@ -13,8 +13,12 @@ final case class PlayerGameRound(
   stakeEur: Money,
   payoutEur: Money,
   gameEndedTime: Instant,
-  seqNr: Int, // TODO change reated usages
+  seqNum: SeqNum,
 )
+
+object SeqNumber {
+  val Default: SeqNum = SeqNum(0L)
+}
 
 object PlayerGameRound {
   import CommonCodecs._

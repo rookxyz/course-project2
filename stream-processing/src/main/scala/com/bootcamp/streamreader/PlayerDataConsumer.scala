@@ -32,23 +32,24 @@ class PlayerDataConsumer(
       .groupWithin(
         kafkaConfig.chunkSize,
         kafkaConfig.chunkTimeout,
-      ) // TODO needs to be configurable default 25, 15
+      )
       .evalMap { chunk =>
         // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
         // 2) test it works
         // 3) in mem state (Ref) - 11) init from db if empty.
         //   3.1) last game ids
         // 4) write to db
-        // TODO 5) sequenceNumber
-        // TODO check sequenceNumber is correct
-        // TODO check last sequenceNumber in state
-        // TODO restore state from db if there is gap
+        //  5) sequenceNumber
+        //  check sequenceNumber is correct
+        //  check last sequenceNumber in state
+        //  restore state from db if there is gap
         val playerRounds: IO[Seq[(PlayerId, PlayerGameRound)]] = IO {
           chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) { case (a, b) =>
             val playerId = PlayerId(b.record.key)
             val playerGameRound = {
               decode[PlayerGameRound](b.record.value) match {
                 case Left(e) =>
+                  println(b.record.value)
                   throw new RuntimeException(
                     s"Error: Could not create PlayerGameRound from Json. $e",
                   ) // TODO Log unsuccessful decode

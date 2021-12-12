@@ -2,6 +2,11 @@ package com.bootcamp.streamreader.domain
 
 import cats.Semigroup
 import cats.implicits._
+import io.circe.{Codec, Decoder, Encoder, KeyDecoder, KeyEncoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.extras
+import io.circe.parser.decode
+import io.circe.syntax.EncoderOps
 
 final case class GameTypeActivity(
   gameRounds: Long,
@@ -34,6 +39,12 @@ object GameTypeActivity {
           x.payoutEur + y.payoutEur,
         )
     }
+
+  import CommonCodecs._
+  implicit val gameTypeActivityDecoder: Decoder[GameTypeActivity] =
+    deriveDecoder
+  implicit val gameTypeActivityEncoder: Encoder[GameTypeActivity] =
+    deriveEncoder
 }
 final case class PlayerGamePlay(gamePlay: Map[GameType, GameTypeActivity])
 
@@ -53,17 +64,35 @@ object PlayerGamePlay {
             .combine(x.gamePlay, y.gamePlay),
         )
     }
+  import GameType._
+  import GameTypeActivity._
+  implicit val gameTypeKeyDecoder = new KeyDecoder[GameType] {
+    override def apply(key: String): Option[GameType] = decode[GameType](key).toOption
+  }
+  implicit val gameTypeKeyEncoder = new KeyEncoder[GameType] {
+    override def apply(key: GameType): String = key.asJson.toString()
+  }
+
+  implicit val playerGamePlayDecoder: Decoder[PlayerGamePlay] =
+    deriveDecoder
+
+  implicit val playerGamePlayEncoder: Encoder[PlayerGamePlay] =
+    deriveEncoder
 }
 
 final case class Cluster(value: Int) extends AnyVal
 
 object Cluster {
   val Default: Cluster = Cluster(0)
+  implicit final val ClusterCodec: Codec[Cluster] =
+    extras.semiauto.deriveUnwrappedCodec
 }
 
 final case class PlayerSessionProfile(
   playerId: PlayerId,
   playerCluster: Cluster,
+  firstSeqNum: SeqNum,
+  lastSeqNum: SeqNum,
   gamePlay: PlayerGamePlay,
 )
 
@@ -77,7 +106,19 @@ object PlayerSessionProfile {
         PlayerSessionProfile(
           x.playerId,
           x.playerCluster,
+          x.firstSeqNum,
+          y.lastSeqNum,
           x.gamePlay |+| y.gamePlay,
         )
     }
+
+  import Cluster._
+  import PlayerGamePlay._
+  import GameTypeActivity._
+  import CommonCodecs._
+
+  implicit val playerSessionProfileDecoder: Decoder[PlayerSessionProfile] =
+    deriveDecoder
+  implicit val playerSessionProfileEncoder: Encoder[PlayerSessionProfile] =
+    deriveEncoder
 }

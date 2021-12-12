@@ -20,8 +20,10 @@ final case class HttpConfig(
 final case class DbConfig(
   host: String,
   port: Port,
-  accessKeyId: String,
-  secretAccessKey: String, // TODO need to read this from system env variable
+  accessKeyId: String, // TODO need to read this from file system later
+  secretAccessKey: String, // TODO need to read this from file system later
+  playerProfileTableName: String,
+  clusterTableName: String,
 )
 
 final case class AppConfig(

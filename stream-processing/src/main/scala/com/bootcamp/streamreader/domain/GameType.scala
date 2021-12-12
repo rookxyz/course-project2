@@ -20,7 +20,7 @@ object GameType {
 
   case object UnknownGameType extends GameType // TODO Log warning in this case
 
-  implicit val gameTypeDec: Decoder[GameType] =
+  implicit val gameTypeDecoder: Decoder[GameType] =
     extras.semiauto
       .deriveEnumerationDecoder[GameType]
       .handleErrorWith(_ => Decoder.const(GameType.UnknownGameType))

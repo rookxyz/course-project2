@@ -2,10 +2,12 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.Main.PlayerDataConsumer
+import com.bootcamp.streamreader.PlayerDataConsumer
 import com.bootcamp.streamreader.domain.GameType._
 import com.bootcamp.streamreader.domain._
+import io.circe
 import io.circe.parser.decode
+import io.circe.syntax.EncoderOps
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -21,14 +23,14 @@ import scala.concurrent.duration._
 class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with Eventually with IntegrationPatience {
 
   test("Runtime exception on invalid message test") {
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
     val repository = PlayerRepository()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val program =
       Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
-        val state = new UpdatePlayerProfile(ref, repository)
+        val state = UpdatePlayerProfile(ref, repository)
         val service = InitPlayerProfile(state)
         val consumer = new PlayerDataConsumer(kafkaConfig, service)
         consumer.stream.take(1).compile.toList // read one record and exit
@@ -55,7 +57,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Roulette",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum":1
         |    }
         |""".stripMargin
 
@@ -67,21 +70,29 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
       Money(BigDecimal(111.11)),
       Money(BigDecimal(222.22)),
       Instant.parse(t),
+      SeqNum(1L),
     )
-    for {
-      d <- decode[PlayerGameRound](message1)
-    } yield d shouldBe gr
+    val d: Either[circe.Error, PlayerGameRound] = decode[PlayerGameRound](message1)
+    d match {
+      case Left(error) =>
+        println(error)
+        0 shouldBe 1
+      case Right(value) =>
+        println(value)
+        value shouldBe gr
+    }
+
   }
 
   test("Accepts correct Json test") {
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
     val repository = PlayerRepository()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val program =
       Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
-        val state = new UpdatePlayerProfile(ref, repository)
+        val state = UpdatePlayerProfile(ref, repository)
         val service = InitPlayerProfile(state)
         val consumer = new PlayerDataConsumer(kafkaConfig, service)
         consumer.stream.take(1).compile.toList // read one record and exit
@@ -92,10 +103,11 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "playerId": "p1",
         |    "gameId":"g1",
         |    "tableId":"t1",
-        |    "gameType":"Baccarat",
+        |    "gameType":"Roulette",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum":1
         |    }
         |""".stripMargin
 
@@ -110,27 +122,72 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     }
   }
 
+  test("Test PlayerSessionProfile Json") {
+    val profile = PlayerSessionProfile(
+      PlayerId("p1"),
+      Cluster(1),
+      SeqNum(0L),
+      SeqNum(1L),
+      PlayerGamePlay(
+        Map(
+          Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22)),
+          Roulette -> GameTypeActivity(2, Money(113.11), Money(221.22)),
+        ),
+      ),
+    )
+
+    val expected =
+      """{
+        |  "playerId" : "p1",
+        |  "playerCluster" : 1,
+        |  "firstSeqNum" : 0,
+        |  "lastSeqNum" : 1,
+        |  "gamePlay" : {
+        |    "gamePlay" : {
+        |      "\"Baccarat\"" : {
+        |        "gameRounds" : 1,
+        |        "stakeEur" : 111.11,
+        |        "payoutEur" : 222.22
+        |      },
+        |      "\"Roulette\"" : {
+        |        "gameRounds" : 2,
+        |        "stakeEur" : 113.11,
+        |        "payoutEur" : 221.22
+        |      }
+        |    }
+        |  }
+        |}""".stripMargin
+
+//    println(profile.asJson.toString())
+    profile.asJson.toString() shouldBe expected
+
+  }
+
   test("Test repository is updated") {
 
     val expected = Some(
       PlayerSessionProfile(
         PlayerId("p1"),
         Cluster(1),
+        SeqNum(0L),
+        SeqNum(1L),
         PlayerGamePlay(
           Map(Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22))),
         ),
       ),
     )
 
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
+//    val dbConfig = DbConfig("localhost", Port(22222), "aaa", "bbbb", "profiles", "clusters")
     val repository = PlayerRepository()
+
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
     val program =
       rref.flatMap { ref =>
-        val state = new UpdatePlayerProfile(ref, repository)
+        val state = UpdatePlayerProfile(ref, repository)
         val service = InitPlayerProfile(state)
         val consumer = new PlayerDataConsumer(kafkaConfig, service)
         consumer.stream.take(1).compile.toList // read one record and exit
@@ -144,7 +201,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Baccarat",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
         |    }
         |""".stripMargin
 
@@ -163,18 +221,33 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
   }
 
   test("Aggregates players game play test") {
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
     val repository = PlayerRepository()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
     val program = rref.flatMap { ref =>
-      val state = new UpdatePlayerProfile(ref, repository)
+      val state = UpdatePlayerProfile(ref, repository)
       val service = InitPlayerProfile(state)
       val consumer = new PlayerDataConsumer(kafkaConfig, service)
       consumer.stream.take(3).compile.toList // read one record and exit
     }
+
+    val expected = Some(
+      PlayerSessionProfile(
+        PlayerId("p1"),
+        Cluster(1),
+        SeqNum(0),
+        SeqNum(3),
+        PlayerGamePlay(
+          Map(
+            Baccarat -> GameTypeActivity(2, Money(222.22), Money(444.44)),
+            Roulette -> GameTypeActivity(1, Money(111.11), Money(222.22)),
+          ),
+        ),
+      ),
+    )
 
     val message1 =
       """
@@ -185,7 +258,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Baccarat",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
         |    }
         |""".stripMargin
 
@@ -198,7 +272,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Baccarat",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 2
         |    }
         |""".stripMargin
 
@@ -211,7 +286,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Roulette",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 3
         |    }
         |""".stripMargin
 
@@ -234,29 +310,21 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
       program.unsafeRunTimed(10.seconds)
 
-      // TODO How can I verify the contents of the Ref in a test?
-      val x = rref.flatMap(ref =>
-        for {
-          s <- ref.get
-          _ <- IO { println(s) }
-        } yield (),
-      )
-      x.unsafeRunSync()
-      println(repository.readByPlayerId(PlayerId("p1")).unsafeRunSync())
+      repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
     }
   }
   test("Aggregates multiple player game play test") {
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic")
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 2, 2.seconds)
     val repository = PlayerRepository.inMem
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val ref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty).unsafeRunSync()
     val program: IO[List[Unit]] = {
-      val state = new UpdatePlayerProfile(ref, repository)
+      val state = UpdatePlayerProfile(ref, repository)
       val service = InitPlayerProfile(state)
       val consumer = new PlayerDataConsumer(kafkaConfig, service)
-      consumer.stream.take(1).compile.toList // read one record and exit
+      consumer.stream.take(2).compile.toList // read one record and exit
     }
     val message1 =
       """
@@ -267,7 +335,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Baccarat",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
         |    }
         |""".stripMargin
 
@@ -280,7 +349,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Baccarat",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
         |    }
         |""".stripMargin
 
@@ -293,7 +363,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         |    "gameType":"Roulette",
         |    "stakeEur":111.11,
         |    "payoutEur":222.22,
-        |    "gameEndedTime":"2021-11-28T14:14:34.257Z"
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
         |    }
         |""".stripMargin
 
@@ -318,13 +389,15 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
       // TODO how to get the output from stream processing to compare to fixed expected value?
       val expected =
-        List(
+        Set(
           PlayerSessionProfile(
             PlayerId("p1"),
-            Cluster(0),
+            Cluster(1),
+            SeqNum(0L),
+            SeqNum(1L),
             PlayerGamePlay(
               Map(
-                UnknownGameType -> GameTypeActivity(
+                Baccarat -> GameTypeActivity(
                   1,
                   Money(111.11),
                   Money(222.22),
@@ -334,10 +407,12 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
           ),
           PlayerSessionProfile(
             PlayerId("p2"),
-            Cluster(0),
+            Cluster(1),
+            SeqNum(0L),
+            SeqNum(1L),
             PlayerGamePlay(
               Map(
-                UnknownGameType -> GameTypeActivity(
+                Baccarat -> GameTypeActivity(
                   1,
                   Money(BigDecimal(111.11)),
                   Money(BigDecimal(222.22)),
@@ -347,7 +422,9 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
           ),
           PlayerSessionProfile(
             PlayerId("p3"),
-            Cluster(0),
+            Cluster(1),
+            SeqNum(0L),
+            SeqNum(1L),
             PlayerGamePlay(
               Map(
                 Roulette -> GameTypeActivity(
@@ -364,8 +441,8 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         println(ref.get.unsafeRunSync())
       }
       eventually {
-        println("ref.get" + ref.get.unsafeRunSync())
-        repository.storage.values.toList shouldBe expected
+//        println("ref.get" + ref.get.unsafeRunSync())
+        repository.storage.values.toSet shouldBe expected
       }
     // repository.storage should contain allElementsOf expected
     }
