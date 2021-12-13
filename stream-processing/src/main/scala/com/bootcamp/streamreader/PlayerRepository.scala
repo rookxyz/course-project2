@@ -2,11 +2,18 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.implicits._
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table}
 import com.bootcamp.streamreader.domain._
+import io.circe.syntax.EncoderOps
+import io.circe.parser.decode
 
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import scala.collection.concurrent.TrieMap
-import jp.co.bizreach.dynamodb4s.{DynamoAttribute, DynamoHashKey, DynamoTable, IntDynamoType, DynamoRangeKey}
-import awscala.dynamodbv2.{DynamoDB, DynamoDBCondition}
+import scala.io.Source
+import scala.util.{Failure, Success, Try}
 
 trait PlayerRepository {
   def store(data: Seq[PlayerSessionProfile]): IO[Unit]
@@ -69,66 +76,60 @@ object PlayerRepository {
   }
 
   def dynamoDb(config: DbConfig): PlayerRepository = new PlayerRepository {
-    implicit val db = DynamoDB.local() // TODO need to check if this is needed
-//    println("Here")
-//    val createdTableMeta: TableMeta = db.createTable(name = "profiles", hashPK = "playerId" -> AttributeType.String)
-//    val createdTableMeta2: TableMeta = db.createTable(name = "clusters", hashPK = "playerId" -> AttributeType.String)
-//    TableUtils.waitUntilActive(db, createdTableMeta.name)
-//    TableUtils.waitUntilActive(db, createdTableMeta2.name)
-//    println(s"Tables in DynamoDB: ${db.tableNames}")
-    println(s"Starting to create Table objects")
-    object PlayerProfileTable extends DynamoTable {
-      val table = config.playerProfileTableName
-      val playerId = DynamoHashKey[String]("playerId")
-      val cluster = DynamoRangeKey[Int]("cluster")
-      val firstSeqNum = DynamoAttribute[Int]("firstSeqNum")
-      val lastSeqNum = DynamoAttribute[Int]("lastSeqNum")
-      val gamePlay = DynamoAttribute[String]("profile")
-//      object clusterIndex extends DynamoTable.SecondaryIndex {
-//        val index = "clusterIndex"
-//        val cluster = DynamoHashKey[Int]("cluster")
-//      }
-    }
-    println(s"Starting to create Table objects2")
-    object PlayerClusterTable extends DynamoTable {
-      val table = config.clusterTableName
-      val playerId = DynamoHashKey[String]("playerId")
-      val cluster = DynamoRangeKey[Int]("cluster")
-    }
-//    object ClusterPlayerTable extends DynamoTable {
-//      val table = config.clusterTableName
-//      val cluster = DynamoHashKey[String]("cluster")
-//      val playerId = DynamoAttribute[Int]("playerId")
-//    }
+    implicit val db: DynamoDB = new DynamoDB(
+      AmazonDynamoDBClientBuilder.standard
+        .withEndpointConfiguration(new EndpointConfiguration(config.endpoint, "eu-central-1"))
+        .build,
+    )
 
-//    val playerProfileTable: Table = db.table(config.playerProfileTableName).get
-//    val playerClusterTable: Table = db.table(config.clusterTableName).get
+    def compress(str: String): Array[Byte] = {
+      val baos = new ByteArrayOutputStream()
+      val gzipOut = new GZIPOutputStream(baos)
+      gzipOut.write(str.getBytes("UTF-8"))
+      gzipOut.close()
+      baos.toByteArray
+    }
+
+    def unCompress(compressed: Array[Byte]): String = {
+      import java.io.ByteArrayInputStream
+      import java.util.zip.GZIPInputStream
+      val bis = new ByteArrayInputStream(compressed)
+      val gis = new GZIPInputStream(bis)
+      val res = Source.fromInputStream(gis, "UTF-8").getLines.take(1).toList.head
+      gis.close
+      res
+    }
+
+    val profilesTable: Table = db.getTable(config.playerProfileTableName)
+    val clustersTable: Table = db.getTable(config.clusterTableName)
 
     def store(data: Seq[PlayerSessionProfile]): IO[Unit] =
       IO {
         data.foreach { d =>
-          println(s"Trying to store: $d")
-          PlayerProfileTable.put(d)
+          profilesTable.putItem(
+            new Item()
+              .withPrimaryKey(new PrimaryKey().addComponent("playerId", d.playerId.id))
+              .withNumber("cluster", d.playerCluster.value)
+              .withBinary("gzipprofile", compress(d.asJson.noSpaces)),
+          )
         }
       }
 
     def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
       IO {
-        println(s"Trying to read $playerId from DynamoDB")
-        PlayerProfileTable.query
-          .filter { t =>
-            t.playerId -> DynamoDBCondition.eq(playerId) :: Nil
-          }
-          .list[PlayerSessionProfile]
-          .headOption
-
+        val item = profilesTable.getItem(new PrimaryKey().addComponent("playerId", playerId.id))
+        Try(unCompress(item.getBinary("gzipprofile"))) match {
+          case Failure(_) =>
+            None
+          case Success(value) =>
+            decode[PlayerSessionProfile](value).toOption
+        }
       }
 
     def readByPlayerIds(
       playerIds: Seq[PlayerId],
     ): IO[Seq[PlayerSessionProfile]] =
       playerIds.toList.traverse { playerId =>
-        println(s"Inside readByPlayerIds")
         for {
           playerProfile <- readByPlayerId(playerId)
           playerCluster <- readClusterByPlayerId(playerId)
@@ -142,26 +143,23 @@ object PlayerRepository {
       }
 
     def readClusterByPlayerId(playerId: PlayerId): IO[Option[Cluster]] =
-      IO(
-        PlayerClusterTable.query
-          .select { t => t.cluster :: Nil }
-          .filter { t =>
-            t.playerId -> DynamoDBCondition.eq(playerId) :: Nil
-          }
-          .map { (t, x) =>
-            Cluster(x.get(t.cluster))
-          }
-          .headOption,
-      )
+      IO {
+        val item = clustersTable.getItem(new PrimaryKey().addComponent("playerId", playerId.id))
+        Try(item.get("cluster").toString) match {
+          case Failure(_)     => None
+          case Success(value) => decode[Cluster](value).toOption
+        }
 
-    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
-      IO(
-        PlayerProfileTable.query
-          .filter { t =>
-            t.cluster -> DynamoDBCondition.eq(cluster) :: Nil
-          }
-          .list[PlayerSessionProfile]
-          .toSeq,
-      )
+      }
+
+//    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
+//      IO(
+//        PlayerProfileTable.query
+//          .filter { t =>
+//            t.cluster -> DynamoDBCondition.eq(cluster.value) :: Nil
+//          }
+//          .list[PlayerSessionProfile]
+//          .toSeq,
+//      )
   }
 }

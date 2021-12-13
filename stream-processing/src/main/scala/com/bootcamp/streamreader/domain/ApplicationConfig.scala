@@ -18,8 +18,7 @@ final case class HttpConfig(
   port: Port,
 )
 final case class DbConfig(
-  host: String,
-  port: Port,
+  endpoint: String,
   accessKeyId: String, // TODO need to read this from file system later
   secretAccessKey: String, // TODO need to read this from file system later
   playerProfileTableName: String,
