@@ -18,7 +18,6 @@ object UpdatePlayerProfile {
       def update(playerProfiles: Seq[PlayerSessionProfile]): IO[Unit] =
         for {
           currentState <- ref.get
-          _ <- IO(println(s"Current state: $currentState"))
           playerIds = playerProfiles.map(_.playerId)
           playerIdsMissingInState = playerIds.filterNot(k => currentState.keySet.contains(k))
           playerIdsOutOfSequence = playerProfiles.flatMap { profile =>
@@ -26,7 +25,8 @@ object UpdatePlayerProfile {
               currentProfile <- currentState.get(profile.playerId)
               lastSeqNum = currentProfile.lastSeqNum
               firstSeqNum = profile.firstSeqNum
-              if lastSeqNum.isNext(firstSeqNum)
+              _ = println(s"Last in state: $lastSeqNum, first in temp profile: $firstSeqNum")
+              if !lastSeqNum.isNext(firstSeqNum)
             } yield (profile.playerId)
           }
           repositoryDataForMissing <-
@@ -34,7 +34,8 @@ object UpdatePlayerProfile {
               playerIdsMissingInState ++ playerIdsOutOfSequence,
             )
           updatedState <- ref.updateAndGet { state =>
-            println(s"Current state: $state")
+            println(s"Players Ids our of seq: $playerIdsOutOfSequence")
+            println(s"State before update: $state")
             println(s"missing players in state: $playerIdsMissingInState")
             println(s"Repository data for missing: $repositoryDataForMissing")
             println(s"Player profiles to be added: $playerProfiles")

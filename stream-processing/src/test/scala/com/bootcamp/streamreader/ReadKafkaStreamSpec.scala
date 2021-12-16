@@ -447,4 +447,129 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     // repository.storage should contain allElementsOf expected
     }
   }
+
+  test("Out of order sequence number test") {
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
+    val repository = PlayerRepository()
+    val config = EmbeddedKafkaConfig(
+      kafkaPort = kafkaConfig.port.value,
+    )
+    val initRepository = PlayerSessionProfile(
+      PlayerId("p1"),
+      Cluster(1),
+      SeqNum(0L),
+      SeqNum(2L),
+      PlayerGamePlay(
+        Map(
+          Baccarat -> GameTypeActivity(
+            2,
+            Money(2.0),
+            Money(-2.0),
+          ),
+        ),
+      ),
+    )
+    val initState = PlayerSessionProfile(
+      PlayerId("p1"),
+      Cluster(1),
+      SeqNum(0L),
+      SeqNum(1L),
+      PlayerGamePlay(
+        Map(
+          Baccarat -> GameTypeActivity(
+            1,
+            Money(1.0),
+            Money(-1.0),
+          ),
+        ),
+      ),
+    )
+    repository.store(Seq(initRepository)).unsafeRunSync()
+    val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map(PlayerId("p1") -> initState))
+    val program = rref.flatMap { ref =>
+      val state = UpdatePlayerProfile(ref, repository)
+      val service = InitPlayerProfile(state)
+      val consumer = new PlayerDataConsumer(kafkaConfig, service)
+      consumer.stream.take(3).compile.toList // read one record and exit
+    }
+
+    val expected = Some(
+      PlayerSessionProfile(
+        PlayerId("p1"),
+        Cluster(1),
+        SeqNum(0),
+        SeqNum(5),
+        PlayerGamePlay(
+          Map(
+            Baccarat -> GameTypeActivity(4, Money(4.0), Money(-4.0)),
+            Roulette -> GameTypeActivity(1, Money(1.0), Money(-1.0)),
+          ),
+        ),
+      ),
+    )
+
+    val message1 =
+      """
+        |    {
+        |    "playerId": "p1",
+        |    "gameId":"g1",
+        |    "tableId":"t1",
+        |    "gameType":"Baccarat",
+        |    "stakeEur": 1.0,
+        |    "payoutEur":-1.0,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 3
+        |    }
+        |""".stripMargin
+
+    val message2 =
+      """
+        |    {
+        |    "playerId": "p1",
+        |    "gameId":"g2",
+        |    "tableId":"t1",
+        |    "gameType":"Baccarat",
+        |    "stakeEur": 1.0,
+        |    "payoutEur":-1.0,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 4
+        |    }
+        |""".stripMargin
+
+    val message3 =
+      """
+        |    {
+        |    "playerId": "p1",
+        |    "gameId":"g3",
+        |    "tableId":"t1",
+        |    "gameType":"Roulette",
+        |    "stakeEur": 1.0,
+        |    "payoutEur":-1.0,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 5
+        |    }
+        |""".stripMargin
+
+    withRunningKafkaOnFoundPort(config) { implicit config =>
+      publishToKafka("topic", "p1", message1)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p1", message2)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p1", message3)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+
+      program.unsafeRunTimed(10.seconds)
+
+      repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+    }
+  }
 }
