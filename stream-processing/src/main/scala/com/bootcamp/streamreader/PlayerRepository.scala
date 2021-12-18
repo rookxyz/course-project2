@@ -9,10 +9,8 @@ import com.bootcamp.streamreader.domain._
 import io.circe.syntax.EncoderOps
 import io.circe.parser.decode
 
-import java.io.ByteArrayOutputStream
-import java.util.zip.GZIPOutputStream
+import CompressString._
 import scala.collection.concurrent.TrieMap
-import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 trait PlayerRepository {
@@ -82,28 +80,10 @@ object PlayerRepository {
         .build,
     )
 
-    def compress(str: String): Array[Byte] = {
-      val baos = new ByteArrayOutputStream()
-      val gzipOut = new GZIPOutputStream(baos)
-      gzipOut.write(str.getBytes("UTF-8"))
-      gzipOut.close()
-      baos.toByteArray
-    }
-
-    def unCompress(compressed: Array[Byte]): String = {
-      import java.io.ByteArrayInputStream
-      import java.util.zip.GZIPInputStream
-      val bis = new ByteArrayInputStream(compressed)
-      val gis = new GZIPInputStream(bis)
-      val res = Source.fromInputStream(gis, "UTF-8").getLines.take(1).toList.head
-      gis.close
-      res
-    }
-
     val profilesTable: Table = db.getTable(config.playerProfileTableName)
     val clustersTable: Table = db.getTable(config.clusterTableName)
 
-    def store(data: Seq[PlayerSessionProfile]): IO[Unit] =
+    def store(data: Seq[PlayerSessionProfile]): IO[Unit] = // TODO use batch put item to improve performance
       IO {
         data.foreach { d =>
           profilesTable.putItem(
@@ -126,7 +106,7 @@ object PlayerRepository {
         }
       }
 
-    def readByPlayerIds(
+    def readByPlayerIds( // TODO use batch get item
       playerIds: Seq[PlayerId],
     ): IO[Seq[PlayerSessionProfile]] =
       playerIds.toList.traverse { playerId =>
@@ -151,6 +131,8 @@ object PlayerRepository {
         }
 
       }
+
+    // TODO the below function is needed for http part of the service
 
 //    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
 //      IO(

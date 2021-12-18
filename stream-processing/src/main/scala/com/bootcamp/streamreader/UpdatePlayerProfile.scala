@@ -6,7 +6,7 @@ import cats.effect.kernel.Ref
 import com.bootcamp.streamreader.domain.{PlayerId, PlayerSessionProfile}
 
 trait UpdatePlayerProfile {
-  def update(profiles: Seq[PlayerSessionProfile]): IO[Unit]
+  def apply(profiles: Seq[PlayerSessionProfile]): IO[Unit]
 }
 
 object UpdatePlayerProfile {
@@ -15,7 +15,7 @@ object UpdatePlayerProfile {
     playerRepository: PlayerRepository,
   ): UpdatePlayerProfile =
     new UpdatePlayerProfile {
-      def update(playerProfiles: Seq[PlayerSessionProfile]): IO[Unit] =
+      def apply(playerProfiles: Seq[PlayerSessionProfile]): IO[Unit] =
         for {
           currentState <- ref.get
           playerIds = playerProfiles.map(_.playerId)

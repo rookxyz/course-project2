@@ -13,18 +13,24 @@ object Dependencies {
   val fs2KafkaVersion = "2.2.0"
   val kafkaVersion = "2.8.1"
   val embeddedKafkaVersion = "2.8.1"
-  val pureConfigVersion = "0.17.0"
+  val pureConfigVersion = "0.17.1"
   val scalaTestVersion = "3.2.10"
-//  val dynamoDbClientVersion = "0.0.9"
-//  val awsScalaVersion = "0.6.2"
   val amazonAwsVersion = "1.11.864"
   val testVersion = "test"
 
   val globalLibs = Seq(
-    "com.github.pureconfig" %% "pureconfig" % pureConfigVersion,
-//    "jp.co.bizreach"        %% "aws-dynamodb-scala"    % dynamoDbClientVersion,
-//    "com.github.seratch"     % "awscala_2.12"          % awsScalaVersion,
+    "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion,
+    "org.typelevel"         %% "cats-effect"            % catsEffectVersion,
+  )
+
+  val repositoryLibs = Seq(
     "com.amazonaws" % "aws-java-sdk-dynamodb" % amazonAwsVersion,
+  )
+
+  val domainLibs = Seq(
+    "io.circe" %% "circe-generic"        % circeVersion,
+    "io.circe" %% "circe-generic-extras" % circeVersion,
+    "io.circe" %% "circe-parser"         % circeVersion,
   )
 
   val httpLibs = Seq(
@@ -32,22 +38,17 @@ object Dependencies {
     "org.http4s"    %% "http4s-ember-client" % http4sVersion,
     "org.http4s"    %% "http4s-circe"        % http4sVersion,
     "org.http4s"    %% "http4s-dsl"          % http4sVersion,
-    "io.circe"      %% "circe-generic"       % circeVersion,
     "org.scalameta" %% "munit"               % munitVersion           % Test,
     "org.typelevel" %% "munit-cats-effect-3" % munitCatsEffectVersion % Test,
     "ch.qos.logback" % "logback-classic"     % logbackVersion,
   )
 
   val streamLibs = Seq(
-    "com.github.fd4s"       %% "fs2-kafka"            % fs2KafkaVersion,
-    "co.fs2"                %% "fs2-core"             % fs2Version,
-    "io.circe"              %% "circe-generic"        % circeVersion,
-    "io.circe"              %% "circe-generic-extras" % circeVersion,
-    "io.circe"              %% "circe-fs2"            % circeFs2Version,
-    "io.circe"              %% "circe-parser"         % circeVersion,
-    "org.typelevel"         %% "cats-effect"          % catsEffectVersion,
-    "org.apache.kafka"       % "kafka-clients"        % kafkaVersion,
-    "com.github.pureconfig" %% "pureconfig"           % pureConfigVersion,
+    "com.github.fd4s"       %% "fs2-kafka"     % fs2KafkaVersion,
+    "co.fs2"                %% "fs2-core"      % fs2Version,
+    "io.circe"              %% "circe-fs2"     % circeFs2Version,
+    "org.apache.kafka"       % "kafka-clients" % kafkaVersion,
+    "com.github.pureconfig" %% "pureconfig"    % pureConfigVersion,
   )
 
   val testLibs = Seq(

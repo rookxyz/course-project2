@@ -1,18 +1,19 @@
 package com.bootcamp.streamreader
 
+import cats.effect.IO
 import com.bootcamp.streamreader.domain.AppConfig
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
-import pureconfig.ConfigReader.Result
 import pureconfig.generic.auto._
+import pureconfig.module.catseffect.syntax.CatsEffectConfigSource
 
-trait Configuration[A] {
-  def fetchAppConfig: Result[A]
+trait FetchApplicationConfig[A] {
+  def apply: IO[A]
 }
 
-object Configuration extends Configuration[AppConfig] {
-  override def fetchAppConfig: Result[AppConfig] =
+object FetchApplicationConfig extends FetchApplicationConfig[AppConfig] {
+  override def apply: IO[AppConfig] =
     ConfigSource
       .fromConfig(ConfigFactory.load("application")) // separate service
-      .load[AppConfig]
+      .loadF[IO, AppConfig]
 }

@@ -3,15 +3,15 @@ package com.bootcamp.streamreader
 import cats.effect.IO
 import com.bootcamp.streamreader.domain._
 
-trait InitPlayerProfile {
-  def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Unit]
+trait CreateTemporaryPlayerProfile {
+  def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Seq[PlayerSessionProfile]]
 }
 
-object InitPlayerProfile {
-  def apply(updatePlayerState: UpdatePlayerProfile): InitPlayerProfile =
-    new InitPlayerProfile {
-      def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Unit] =
-        updatePlayerState.update(createPlayerSessionProfile(playerRounds))
+object CreateTemporaryPlayerProfile {
+  def apply: CreateTemporaryPlayerProfile =
+    new CreateTemporaryPlayerProfile {
+      def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Seq[PlayerSessionProfile]] =
+        IO.pure(createPlayerSessionProfile(playerRounds))
 
       private def createPlayerSessionProfile(
         playerRounds: Seq[(PlayerId, PlayerGameRound)],
@@ -30,7 +30,6 @@ object InitPlayerProfile {
             PlayerSessionProfile(
               playerId,
               Cluster.Default,
-              // TODO perhaps cluster should be an Option, so that no need to fill it here
               minSeqNum,
               maxSeqNum,
               PlayerGamePlay(gamePlay),

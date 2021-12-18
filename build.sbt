@@ -11,19 +11,37 @@ lazy val global = project
     name := "course-project2",
     version := "0.1",
     organization := "com.bootcamp",
-    libraryDependencies ++= globalLibs,
+//    libraryDependencies ++= globalLibs,
   )
+
+lazy val domain = (project in file("domain"))
+  .settings(
+    name := "domain",
+    libraryDependencies ++= domainLibs,
+  )
+
+lazy val playerRepository = (project in file("player-repository"))
+  .settings(
+    name := "player-repository",
+    libraryDependencies ++= repositoryLibs,
+  )
+  .dependsOn(domain)
 
 lazy val http = (project in file("recommender-service"))
   .settings(
     name := "recommender-service",
     scalacOptions += "-Ypartial-unification",
-    libraryDependencies ++= httpLibs,
+    libraryDependencies ++= httpLibs ++ globalLibs,
   )
+  .dependsOn(domain, playerRepository)
 
 lazy val streams = (project in file("stream-processing"))
   .settings(
     name := "stream-processing",
-    libraryDependencies ++= streamLibs ++ testLibs,
-    libraryDependencies ++= globalLibs, // TODO remove - added becuase aws was not imoprting
+    libraryDependencies ++= streamLibs ++ globalLibs ++ testLibs,
   )
+  .dependsOn(domain, playerRepository)
+
+lazy val integration = project
+  .settings(name := "integration")
+  .dependsOn(http, streams)

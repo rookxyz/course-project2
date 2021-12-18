@@ -231,8 +231,8 @@ class ReadDynamoDbSpec
     val program =
       rref.flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = InitPlayerProfile(state)
-        val consumer = new PlayerDataConsumer(kafkaConfig, service)
+        val service = CreateTemporaryPlayerProfile.apply
+        val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
     val message1 =

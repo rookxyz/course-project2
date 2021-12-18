@@ -7,7 +7,8 @@ import io.circe.parser.decode
 
 class PlayerDataConsumer(
   kafkaConfig: KafkaConfig,
-  initPlayerProfile: InitPlayerProfile,
+  updatePlayerProfile: UpdatePlayerProfile,
+  createTemporaryPlayerProfile: CreateTemporaryPlayerProfile,
 ) {
 
   def start: IO[Unit] = stream.compile.drain
@@ -34,15 +35,6 @@ class PlayerDataConsumer(
         kafkaConfig.chunkTimeout,
       )
       .evalMap { chunk =>
-        // 1) group/handle data into Seq[PlayerSessionProfile] and pass to playerService(players)
-        // 2) test it works
-        // 3) in mem state (Ref) - 11) init from db if empty.
-        //   3.1) last game ids
-        // 4) write to db
-        //  5) sequenceNumber
-        //  check sequenceNumber is correct
-        //  check last sequenceNumber in state
-        //  restore state from db if there is gap
         val playerRounds: IO[Seq[(PlayerId, PlayerGameRound)]] = IO {
           chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) { case (a, b) =>
             val playerId = PlayerId(b.record.key)
@@ -59,7 +51,14 @@ class PlayerDataConsumer(
             a :+ (playerId, playerGameRound)
           }
         }
-        playerRounds.flatMap(initPlayerProfile.apply).map(_ => chunk.map(_.offset))
+        val updatedProfiles = for {
+          playerRounds <- playerRounds
+          temporaryProfiles <- createTemporaryPlayerProfile.apply(playerRounds)
+          _ <- updatePlayerProfile.apply(temporaryProfiles)
+        } yield ()
+
+        updatedProfiles
+          .map(_ => chunk.map(_.offset))
       }
       .evalMap(x => CommittableOffsetBatch.fromFoldable(x).commit)
 }
