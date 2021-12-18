@@ -1,11 +1,11 @@
 package com.bootcamp.streamreader
 
 import cats.effect.IO
-import com.bootcamp.streamreader.domain.{KafkaConfig, PlayerGameRound, PlayerId, Port}
+import com.bootcamp.domain.{KafkaConfig, PlayerGameRound, PlayerId, Port}
 import fs2.kafka.{AutoOffsetReset, CommittableOffsetBatch, ConsumerSettings, Deserializer, KafkaConsumer}
 import io.circe.parser.decode
 
-class PlayerDataConsumer(
+class ConsumePlayerData(
   kafkaConfig: KafkaConfig,
   updatePlayerProfile: UpdatePlayerProfile,
   createTemporaryPlayerProfile: CreateTemporaryPlayerProfile,

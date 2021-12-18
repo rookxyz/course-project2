@@ -2,8 +2,8 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.domain.GameType._
-import com.bootcamp.streamreader.domain._
+import com.bootcamp.domain._
+import com.bootcamp.domain.GameType._
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
@@ -30,6 +30,19 @@ import com.amazonaws.services.dynamodbv2.model.{
   TableDescription,
   TableStatus,
 }
+import com.bootcamp.domain.{
+  Cluster,
+  DbConfig,
+  GameTypeActivity,
+  KafkaConfig,
+  Money,
+  PlayerGamePlay,
+  PlayerId,
+  PlayerSessionProfile,
+  Port,
+  SeqNum,
+}
+import com.bootcamp.playerrepository.PlayerRepository
 import org.scalatest.BeforeAndAfter
 
 import java.io.ByteArrayOutputStream
@@ -232,7 +245,7 @@ class ReadDynamoDbSpec
       rref.flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
     val message1 =

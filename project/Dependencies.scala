@@ -25,6 +25,7 @@ object Dependencies {
 
   val repositoryLibs = Seq(
     "com.amazonaws" % "aws-java-sdk-dynamodb" % amazonAwsVersion,
+    "co.fs2"       %% "fs2-core"              % fs2Version, // TODO for experiment with BatchWriteItem
   )
 
   val domainLibs = Seq(

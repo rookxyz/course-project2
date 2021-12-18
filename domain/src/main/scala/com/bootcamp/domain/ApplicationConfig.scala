@@ -1,4 +1,4 @@
-package com.bootcamp.streamreader.domain
+package com.bootcamp.domain
 
 import scala.concurrent.duration.FiniteDuration
 

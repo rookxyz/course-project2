@@ -1,15 +1,15 @@
-package com.bootcamp.streamreader
+package com.bootcamp.playerrepository
 
 import cats.effect.IO
 import cats.implicits._
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table}
-import com.bootcamp.streamreader.domain._
-import io.circe.syntax.EncoderOps
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table, TableWriteItems}
+import com.bootcamp.domain.{Cluster, DbConfig, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNumber}
+import fs2.Chunk
 import io.circe.parser.decode
+import io.circe.syntax.EncoderOps
 
-import CompressString._
 import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
@@ -69,7 +69,6 @@ object PlayerRepository {
       }
 
     def readClusterByPlayerId(playerId: PlayerId): IO[Option[Cluster]] =
-      // TODO replace with actual implementation
       IO.pure { Some(Cluster(1)) }
   }
 
@@ -83,16 +82,43 @@ object PlayerRepository {
     val profilesTable: Table = db.getTable(config.playerProfileTableName)
     val clustersTable: Table = db.getTable(config.clusterTableName)
 
-    def store(data: Seq[PlayerSessionProfile]): IO[Unit] = // TODO use batch put item to improve performance
-      IO {
-        data.foreach { d =>
-          profilesTable.putItem(
-            new Item()
-              .withPrimaryKey(new PrimaryKey().addComponent("playerId", d.playerId.id))
-              .withNumber("cluster", d.playerCluster.value)
-              .withBinary("gzipprofile", compress(d.asJson.noSpaces)),
-          )
-        }
+    import CompressString._
+
+    def store(data: Seq[PlayerSessionProfile]): IO[Unit] =
+//      data.toList.parTraverse_ { d => // TODO improve further using BatchWriteItem as write overwrites the old values
+//        IO(
+//          profilesTable.putItem(
+//            new Item()
+//              .withPrimaryKey(new PrimaryKey().addComponent("playerId", d.playerId.id))
+//              .withNumber("cluster", d.playerCluster.value)
+//              .withBinary("gzipprofile", compress(d.asJson.noSpaces)),
+//          ),
+//        )
+//      }
+      {
+        def createDbInsertItem(profile: PlayerSessionProfile): Item = new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", profile.playerId.id))
+          .withNumber("cluster", profile.playerCluster.value)
+          .withBinary("gzipprofile", compress(profile.asJson.noSpaces))
+
+        import fs2.Stream
+        import scala.collection.JavaConverters._
+
+        val stream: Stream[IO, Unit] = Stream
+          .evalSeq(IO(data))
+          .chunkN(25, true)
+          .evalMap { chunk =>
+            IO {
+              val writeItems: Seq[Item] =
+                chunk.foldLeft(Seq.empty[Item])((acc, c) => acc ++ Seq(createDbInsertItem(c)))
+              val tableWriteItems = new TableWriteItems(profilesTable.getTableName)
+                .withItemsToPut(writeItems.asJavaCollection)
+              val batchWriteOutcome = db.batchWriteItem(tableWriteItems)
+              // TODO Log: batchWriteOutcome.getBatchWriteItemResult.toString
+              // TODO retry for failed items
+            }
+          }
+        stream.compile.drain
       }
 
     def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =

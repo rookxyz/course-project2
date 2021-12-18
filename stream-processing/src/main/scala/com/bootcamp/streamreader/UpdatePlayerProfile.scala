@@ -3,7 +3,9 @@ package com.bootcamp.streamreader
 import cats.effect.IO
 import cats.implicits._
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.domain.{PlayerId, PlayerSessionProfile}
+import com.bootcamp.domain.{PlayerId, PlayerSessionProfile}
+import com.bootcamp.playerrepository.PlayerRepository
+import com.bootcamp.domain.PlayerSessionProfile
 
 trait UpdatePlayerProfile {
   def apply(profiles: Seq[PlayerSessionProfile]): IO[Unit]

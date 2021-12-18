@@ -1,4 +1,4 @@
-package com.bootcamp.streamreader.domain
+package com.bootcamp.domain
 
 import io.circe.generic.extras
 import io.circe.{Decoder, Encoder}

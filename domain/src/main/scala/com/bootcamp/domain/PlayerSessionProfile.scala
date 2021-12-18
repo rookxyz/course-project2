@@ -1,12 +1,14 @@
-package com.bootcamp.streamreader.domain
+package com.bootcamp.domain
 
 import cats.Semigroup
 import cats.implicits._
-import io.circe.{Codec, Decoder, Encoder, KeyDecoder, KeyEncoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe._
 import io.circe.generic.extras
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
+
+import CommonCodecs._
 
 final case class GameTypeActivity(
   gameRounds: Long,
@@ -39,8 +41,6 @@ object GameTypeActivity {
           x.payoutEur + y.payoutEur,
         )
     }
-
-  import CommonCodecs._
   implicit val gameTypeActivityDecoder: Decoder[GameTypeActivity] =
     deriveDecoder
   implicit val gameTypeActivityEncoder: Encoder[GameTypeActivity] =
@@ -65,7 +65,6 @@ object PlayerGamePlay {
         )
     }
   import GameType._
-  import GameTypeActivity._
   implicit val gameTypeKeyDecoder = new KeyDecoder[GameType] {
     override def apply(key: String): Option[GameType] = decode[GameType](key).toOption
   }
@@ -111,11 +110,6 @@ object PlayerSessionProfile {
           x.gamePlay |+| y.gamePlay,
         )
     }
-
-  import Cluster._
-  import PlayerGamePlay._
-  import GameTypeActivity._
-  import CommonCodecs._
 
   implicit val playerSessionProfileDecoder: Decoder[PlayerSessionProfile] =
     deriveDecoder

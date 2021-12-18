@@ -1,7 +1,7 @@
 package com.bootcamp.streamreader
 
 import cats.effect.IO
-import com.bootcamp.streamreader.domain.AppConfig
+import com.bootcamp.domain.AppConfig
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 import pureconfig.generic.auto._

@@ -2,9 +2,24 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.streamreader.PlayerDataConsumer
-import com.bootcamp.streamreader.domain.GameType._
-import com.bootcamp.streamreader.domain._
+import com.bootcamp.domain.{
+  Cluster,
+  GameId,
+  GameTypeActivity,
+  KafkaConfig,
+  Money,
+  PlayerGamePlay,
+  PlayerGameRound,
+  PlayerId,
+  PlayerSessionProfile,
+  Port,
+  SeqNum,
+  TableId,
+}
+import com.bootcamp.playerrepository.PlayerRepository
+import com.bootcamp.streamreader.ConsumePlayerData
+import com.bootcamp.domain._
+import com.bootcamp.domain.GameType._
 import io.circe
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
@@ -32,7 +47,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
       Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
     withRunningKafkaOnFoundPort(config) { implicit config =>
@@ -94,7 +109,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
       Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
     val message1 =
@@ -189,7 +204,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
       rref.flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
     val message1 =
@@ -230,7 +245,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val program = rref.flatMap { ref =>
       val state = UpdatePlayerProfile(ref, repository)
       val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
       consumer.stream.take(3).compile.toList // read one record and exit
     }
 
@@ -323,7 +338,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val program: IO[List[Unit]] = {
       val state = UpdatePlayerProfile(ref, repository)
       val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
       consumer.stream.take(2).compile.toList // read one record and exit
     }
     val message1 =
@@ -489,7 +504,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val program = rref.flatMap { ref =>
       val state = UpdatePlayerProfile(ref, repository)
       val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new PlayerDataConsumer(kafkaConfig, state, service)
+      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
       consumer.stream.take(3).compile.toList // read one record and exit
     }
 

@@ -1,7 +1,16 @@
 package com.bootcamp.streamreader
 
 import cats.effect.IO
-import com.bootcamp.streamreader.domain._
+import com.bootcamp.domain.{
+  Cluster,
+  GameType,
+  GameTypeActivity,
+  PlayerGamePlay,
+  PlayerGameRound,
+  PlayerId,
+  PlayerSessionProfile,
+}
+import com.bootcamp.domain._
 
 trait CreateTemporaryPlayerProfile {
   def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Seq[PlayerSessionProfile]]

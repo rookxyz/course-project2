@@ -1,7 +1,8 @@
-package com.bootcamp.streamreader.domain
+package com.bootcamp.domain
 
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
+import CommonCodecs._
 
 import java.time.Instant
 
@@ -21,7 +22,6 @@ object SeqNumber {
 }
 
 object PlayerGameRound {
-  import CommonCodecs._
   implicit val playerGameRoundDecoder: Decoder[PlayerGameRound] =
     deriveDecoder
   implicit val playerGameRoundEncoder: Encoder[PlayerGameRound] =

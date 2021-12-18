@@ -1,4 +1,4 @@
-package com.bootcamp.streamreader
+package com.bootcamp.playerrepository
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
