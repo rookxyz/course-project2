@@ -17,7 +17,9 @@ object CalculateSimilarity {
   object CalculateCosineSimilarity extends Similarity[Long] {
     override def apply(x: Array[Long], y: Array[Long]): Float = {
       require(x.length == y.length)
-      dotProduct[Long](x, y) / (magnitude[Long](x) * magnitude[Long](y))
+      val xx = normalize(x)
+      val yy = normalize(y)
+      dotProduct[Float](xx, yy) / (magnitude[Float](xx) * magnitude[Float](yy))
     }
   }
 

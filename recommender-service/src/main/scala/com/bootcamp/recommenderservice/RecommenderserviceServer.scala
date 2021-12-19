@@ -1,5 +1,6 @@
 package com.bootcamp.recommenderservice
 
+import cats.effect.unsafe.implicits.{global => globalz}
 import cats.effect.{ExitCode, IO}
 import com.bootcamp.config.FetchApplicationConfig
 import com.bootcamp.domain._
@@ -33,12 +34,17 @@ object RecommenderserviceServer {
       8. encode to Json
       9. return response
        */
+      println(s"Got request for player $playerId")
+
       val playerIdObj = PlayerId(playerId)
       (for {
         playerCluster <- playerRepository.readClusterByPlayerId(playerIdObj)
         playersWithCluster <- playerRepository.readPlayersByCluster(playerCluster.get)
-        _ = if (!playersWithCluster.exists(p => p.playerId == playerIdObj))
-          IO.raiseError(new Throwable) // TODO need to terminate here if not found
+//        response <- Ok(playersWithCluster.toString())
+        _ <- IO(for (elem <- playersWithCluster) println(elem))
+        _ = if (!playersWithCluster.exists(p => p.playerId == playerIdObj)) {
+          IO.raiseError(new Throwable)
+        } // TODO need to terminate here if not found
         playerGamePlayRounds = playersWithCluster
           .map(profile => (profile.playerId -> profile.gamePlay.gamePlay.map(game => (game._1 -> game._2.gameRounds))))
         allGameTypes: List[GameType] = playerGamePlayRounds
@@ -67,8 +73,20 @@ object RecommenderserviceServer {
         averagedGamePlay: List[(GameType, Float)] = allGameTypes.map { gt =>
           val indx = allGameTypes.indexOf(gt)
           val n = topSimilarPlayersActivity.size.toFloat
-          val avgRating = topSimilarPlayersActivity.map(_._2(indx)).sum / n
+          val avgRating = topSimilarPlayersActivity.map { i =>
+            val arr = CalculateSimilarity.normalize[Long](i._2)
+            arr(indx)
+          }.sum / n
+          println(s"Caclulation N = $n, to sum ${topSimilarPlayersActivity.map(_._2(indx))}")
           gt -> avgRating
+        }
+        _ <- IO {
+          println(s"Player full activity: ${playerFullActivityMap.keys}")
+          println(s"Player full activity: ${playerFullActivityMap.values.foreach(_.mkString("Array(", ", ", ")"))}")
+          println(s"Other players activity ${otherPlayersActivity.keys}")
+          println(allGameTypes)
+          println(s"Average activity: $averagedGamePlay")
+          println(s"Player activity: ${playerActivity.get.mkString("Array(", ", ", ")")}")
         }
         playerUnseenGameTypesSorted = averagedGamePlay
           .zip(playerActivity.get.toList)
@@ -84,7 +102,7 @@ object RecommenderserviceServer {
 
   def run(args: List[String]): IO[ExitCode] =
     for {
-      config <- FetchApplicationConfig.apply
+      config <- FetchApplicationConfig.apply[IO]
       dbConfig = config.db
       playerRepository = PlayerRepository(dbConfig)
       httpConfig = config.http

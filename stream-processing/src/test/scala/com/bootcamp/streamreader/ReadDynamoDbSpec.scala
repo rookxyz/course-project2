@@ -226,6 +226,20 @@ class ReadDynamoDbSpec
           .withNumber("cluster", 1),
       )
       .ensuring(true)
+    clustersTable.get
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p2"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
+    clustersTable.get
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p3"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
     ////// end of DB setup
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
@@ -238,7 +252,7 @@ class ReadDynamoDbSpec
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
-        consumer.stream.take(1).compile.toList // read one record and exit
+        consumer.stream.take(3).compile.toList // read one record and exit
       }
     } yield ()
     val message1 =
@@ -255,8 +269,46 @@ class ReadDynamoDbSpec
         |    }
         |""".stripMargin
 
+    val message2 =
+      """
+        |    {
+        |    "playerId": "p2",
+        |    "gameId":"g2",
+        |    "tableId":"t1",
+        |    "gameType":"Baccarat",
+        |    "stakeEur":111.11,
+        |    "payoutEur":222.22,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
+        |    }
+        |""".stripMargin
+
+    val message3 =
+      """
+        |    {
+        |    "playerId": "p3",
+        |    "gameId":"g3",
+        |    "tableId":"t1",
+        |    "gameType":"Roulette",
+        |    "stakeEur":111.11,
+        |    "payoutEur":222.22,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
+        |    }
+        |""".stripMargin
+
     withRunningKafkaOnFoundPort(config) { implicit config =>
       publishToKafka("topic", "p1", message1)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p2", message2)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p3", message3)(
         config,
         new StringSerializer,
         new StringSerializer,
@@ -269,5 +321,129 @@ class ReadDynamoDbSpec
     }
 
   }
+  test("Insert  DynamoDb records") {
+    Ref
+    val expected = Some(
+      PlayerSessionProfile(
+        PlayerId("p1"),
+        Cluster(1),
+        SeqNum(0L),
+        SeqNum(1L),
+        PlayerGamePlay(
+          Map(Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22))),
+        ),
+      ),
+    )
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
+    val dbConfig = DbConfig("http://localhost:8000", "aaa", "bbbb", "profiles2", "clusters2")
+    ////// DB setup
+    implicit val db: DynamoDB = new DynamoDB(
+      AmazonDynamoDBClientBuilder.standard
+        .withEndpointConfiguration(new EndpointConfiguration(dbConfig.endpoint, "eu-central-1"))
+        .build,
+    )
 
+    val clustersTable = db.getTable("clusters2")
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p4"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p5"))
+          .withNumber("cluster", 2),
+      )
+      .ensuring(true)
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p6"))
+          .withNumber("cluster", 2),
+      )
+      .ensuring(true)
+    ////// end of DB setup
+    val config = EmbeddedKafkaConfig(
+      kafkaPort = kafkaConfig.port.value,
+    )
+    val repository = PlayerRepository(dbConfig)
+    val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- rref flatMap { ref =>
+        val state = UpdatePlayerProfile(ref, repository)
+        val service = CreateTemporaryPlayerProfile.apply
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
+        consumer.stream.take(3).compile.toList // read one record and exit
+      }
+    } yield ()
+    val message1 =
+      """
+        |    {
+        |    "playerId": "p4",
+        |    "gameId":"g1",
+        |    "tableId":"t1",
+        |    "gameType":"SpinForeverRoulette",
+        |    "stakeEur":111.11,
+        |    "payoutEur":222.22,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
+        |    }
+        |""".stripMargin
+
+    val message2 =
+      """
+        |    {
+        |    "playerId": "p5",
+        |    "gameId":"g2",
+        |    "tableId":"t1",
+        |    "gameType":"SpinForeverRoulette",
+        |    "stakeEur":111.11,
+        |    "payoutEur":222.22,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
+        |    }
+        |""".stripMargin
+
+    val message3 =
+      """
+        |    {
+        |    "playerId": "p6",
+        |    "gameId":"g3",
+        |    "tableId":"t1",
+        |    "gameType":"SpinForeverRoulette",
+        |    "stakeEur":111.11,
+        |    "payoutEur":222.22,
+        |    "gameEndedTime":"2021-11-28T14:14:34.257Z",
+        |    "seqNum": 1
+        |    }
+        |""".stripMargin
+
+    withRunningKafkaOnFoundPort(config) { implicit config =>
+      publishToKafka("topic", "p4", message1)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p5", message2)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+      publishToKafka("topic", "p6", message3)(
+        config,
+        new StringSerializer,
+        new StringSerializer,
+      )
+
+      program.unsafeRunTimed(10.seconds)
+      repository
+        .readByPlayerId(PlayerId("p1"))
+        .unsafeRunSync() shouldBe expected
+    }
+
+  }
 }

@@ -174,6 +174,7 @@ object PlayerRepository {
 
     def readPlayersByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
       IO {
+        println(s"Tables in DB ${db.listTables().toString}")
         val globalIndex = profilesTable.getIndex("ClusterIndex")
         val indexQuery = globalIndex.query("cluster", cluster.value)
         val queryResult = indexQuery.iterator().asScala

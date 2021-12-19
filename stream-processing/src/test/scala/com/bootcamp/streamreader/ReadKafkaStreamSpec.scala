@@ -342,7 +342,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
-        consumer.stream.take(2).compile.toList // read one record and exit
+        consumer.stream.take(3).compile.toList // read one record and exit
       }
     } yield ()
     val message1 =

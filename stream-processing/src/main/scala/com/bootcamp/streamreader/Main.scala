@@ -13,7 +13,7 @@ object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
 
-      config <- FetchApplicationConfig.apply
+      config <- FetchApplicationConfig.apply[IO]
       logger <- Slf4jLogger.create[IO] // TODO often wrapped in Resource, why?
       repository = PlayerRepository(config.db)
       _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
