@@ -2,17 +2,17 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import com.bootcamp.config.KafkaConfig
+import com.bootcamp.config.domain.{KafkaConfig, Port}
 import com.bootcamp.domain.{
   Cluster,
   GameId,
   GameTypeActivity,
-  KafkaConfig,
   Money,
   PlayerGamePlay,
   PlayerGameRound,
   PlayerId,
   PlayerSessionProfile,
-  Port,
   SeqNum,
   TableId,
 }
@@ -31,6 +31,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -56,8 +57,10 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         new StringSerializer,
         new StringSerializer,
       )
+
+      // TODO how to check for log - read file or can capture?
       an[RuntimeException] should be thrownBy program
-        .unsafeRunTimed(2.seconds)
+        .unsafeRunTimed(10.seconds)
         .get
     }
   }

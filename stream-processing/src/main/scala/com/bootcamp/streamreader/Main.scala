@@ -2,6 +2,7 @@ package com.bootcamp.streamreader
 
 import cats.effect.kernel.Ref
 import cats.effect.{ExitCode, IO, IOApp}
+import com.bootcamp.config.FetchApplicationConfig
 import com.bootcamp.domain.{PlayerId, PlayerSessionProfile}
 import com.bootcamp.playerrepository.PlayerRepository
 import com.bootcamp.domain._

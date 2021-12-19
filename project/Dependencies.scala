@@ -17,15 +17,19 @@ object Dependencies {
   val scalaTestVersion = "3.2.10"
   val amazonAwsVersion = "1.11.864"
   val testVersion = "test"
+  val log4catsVersion = "2.1.1"
 
   val globalLibs = Seq(
     "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion,
     "org.typelevel"         %% "cats-effect"            % catsEffectVersion,
+//    "io.chrisdavenport"      % "log4cats-core_2.12"     % log4catsVersion,
+    "org.typelevel"          % "log4cats-slf4j_2.12" % log4catsVersion,
+    "com.github.pureconfig" %% "pureconfig"          % pureConfigVersion,
   )
 
   val repositoryLibs = Seq(
     "com.amazonaws" % "aws-java-sdk-dynamodb" % amazonAwsVersion,
-    "co.fs2"       %% "fs2-core"              % fs2Version, // TODO for experiment with BatchWriteItem
+    "co.fs2"       %% "fs2-core"              % fs2Version,
   )
 
   val domainLibs = Seq(
@@ -37,6 +41,7 @@ object Dependencies {
   val httpLibs = Seq(
     "org.http4s"    %% "http4s-ember-server" % http4sVersion,
     "org.http4s"    %% "http4s-ember-client" % http4sVersion,
+    "org.http4s"    %% "http4s-blaze-server" % http4sVersion,
     "org.http4s"    %% "http4s-circe"        % http4sVersion,
     "org.http4s"    %% "http4s-dsl"          % http4sVersion,
     "org.scalameta" %% "munit"               % munitVersion           % Test,
@@ -45,11 +50,10 @@ object Dependencies {
   )
 
   val streamLibs = Seq(
-    "com.github.fd4s"       %% "fs2-kafka"     % fs2KafkaVersion,
-    "co.fs2"                %% "fs2-core"      % fs2Version,
-    "io.circe"              %% "circe-fs2"     % circeFs2Version,
-    "org.apache.kafka"       % "kafka-clients" % kafkaVersion,
-    "com.github.pureconfig" %% "pureconfig"    % pureConfigVersion,
+    "com.github.fd4s" %% "fs2-kafka"     % fs2KafkaVersion,
+    "co.fs2"          %% "fs2-core"      % fs2Version,
+    "io.circe"        %% "circe-fs2"     % circeFs2Version,
+    "org.apache.kafka" % "kafka-clients" % kafkaVersion,
   )
 
   val testLibs = Seq(

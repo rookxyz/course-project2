@@ -4,12 +4,16 @@ import cats.effect.IO
 import cats.implicits._
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table, TableWriteItems}
-import com.bootcamp.domain.{Cluster, DbConfig, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNumber}
+import com.amazonaws.services.dynamodbv2.document.internal.IteratorSupport
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, QueryOutcome, Table, TableWriteItems}
+import com.bootcamp.config.domain.DbConfig
+import com.bootcamp.domain.{Cluster, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNumber}
 import fs2.Chunk
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
+import collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
@@ -82,7 +86,7 @@ object PlayerRepository {
     val profilesTable: Table = db.getTable(config.playerProfileTableName)
     val clustersTable: Table = db.getTable(config.clusterTableName)
 
-    import CompressString._
+    import com.bootcamp.playerrepository.utilities.CompressString._
 
     def store(data: Seq[PlayerSessionProfile]): IO[Unit] =
 //      data.toList.parTraverse_ { d => // TODO improve further using BatchWriteItem as write overwrites the old values
@@ -102,7 +106,7 @@ object PlayerRepository {
           .withBinary("gzipprofile", compress(profile.asJson.noSpaces))
 
         import fs2.Stream
-        import scala.collection.JavaConverters._
+//        import scala.collection.JavaConverters._
 
         val stream: Stream[IO, Unit] = Stream
           .evalSeq(IO(data))
@@ -114,11 +118,14 @@ object PlayerRepository {
               val tableWriteItems = new TableWriteItems(profilesTable.getTableName)
                 .withItemsToPut(writeItems.asJavaCollection)
               val batchWriteOutcome = db.batchWriteItem(tableWriteItems)
-              // TODO Log: batchWriteOutcome.getBatchWriteItemResult.toString
+              // how to Info log so that this does not affect the result of the function
+//              Slf4jLogger
+//                .create[IO]
+//                .flatMap(_.info(s"DynamoDB write result: ${batchWriteOutcome.getBatchWriteItemResult.toString}"))
               // TODO retry for failed items
             }
           }
-        stream.compile.drain
+        stream.compile.drain.onError(error => Slf4jLogger.create[IO].flatMap(_.error(error)("DynamoDb write failed")))
       }
 
     def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
@@ -158,16 +165,12 @@ object PlayerRepository {
 
       }
 
-    // TODO the below function is needed for http part of the service
-
-//    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
-//      IO(
-//        PlayerProfileTable.query
-//          .filter { t =>
-//            t.cluster -> DynamoDBCondition.eq(cluster.value) :: Nil
-//          }
-//          .list[PlayerSessionProfile]
-//          .toSeq,
-//      )
+    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
+      IO {
+        val globalIndex = profilesTable.getIndex("ClusterIndex")
+        val indexQuery = globalIndex.query("cluster", cluster.value)
+        val queryResult = indexQuery.iterator().asScala
+        queryResult.toSeq.flatMap(i => decode[PlayerSessionProfile](unCompress(i.getBinary("gzipprofile"))).toOption)
+      }
   }
 }

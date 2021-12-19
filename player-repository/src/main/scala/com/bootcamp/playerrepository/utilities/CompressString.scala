@@ -1,4 +1,4 @@
-package com.bootcamp.playerrepository
+package com.bootcamp.playerrepository.utilities
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream

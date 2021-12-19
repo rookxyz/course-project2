@@ -1,43 +1,37 @@
 package com.bootcamp.recommenderservice
 
-import cats.effect.{Async, Resource}
-import cats.syntax.all._
-import com.comcast.ip4s._
-import fs2.Stream
-import org.http4s.ember.client.EmberClientBuilder
-import org.http4s.ember.server.EmberServerBuilder
+import cats.effect.{ExitCode, IO}
+import com.bootcamp.config.FetchApplicationConfig
+import org.http4s.HttpRoutes
+import org.http4s.dsl.io.{GET, Ok}
 import org.http4s.implicits._
-import org.http4s.server.middleware.Logger
+import org.http4s.server.blaze._
+
+import org.http4s.dsl.io._
+import org.http4s.server.Router
+
+import scala.concurrent.ExecutionContext.global
 
 object RecommenderserviceServer {
 
-  def stream[F[_]: Async]: Stream[F, Nothing] = {
+  private val recommenderService = HttpRoutes
+    .of[IO] { case GET -> Root / "recommender" / "playerId" / playerId =>
+      Ok(s"Hello, $playerId")
+    }
+
+  private val httpApp = Router("/" -> recommenderService).orNotFound
+
+  def run(args: List[String]): IO[ExitCode] =
     for {
-      client <- Stream.resource(EmberClientBuilder.default[F].build)
-      helloWorldAlg = HelloWorld.impl[F]
-      jokeAlg = Jokes.impl[F](client)
+      config <- FetchApplicationConfig.apply
+      httpConfig = config.http
+      _ <- BlazeServerBuilder[IO](global)
+        .bindHttp(httpConfig.port.value, httpConfig.host)
+        .withHttpApp(httpApp)
+        .serve
+        .compile
+        .drain
 
-      // Combine Service Routes into an HttpApp.
-      // Can also be done via a Router if you
-      // want to extract a segments not checked
-      // in the underlying routes.
-      httpApp = (
-        RecommenderserviceRoutes.helloWorldRoutes[F](helloWorldAlg) <+>
-          RecommenderserviceRoutes.jokeRoutes[F](jokeAlg)
-      ).orNotFound
+    } yield ExitCode.Success
 
-      // With Middlewares in place
-      finalHttpApp = Logger.httpApp(true, true)(httpApp)
-
-      exitCode <- Stream.resource(
-        EmberServerBuilder
-          .default[F]
-          .withHost(ipv4"0.0.0.0")
-          .withPort(port"8080")
-          .withHttpApp(finalHttpApp)
-          .build >>
-          Resource.eval(Async[F].never),
-      )
-    } yield exitCode
-  }.drain
 }

@@ -1,4 +1,4 @@
-package com.bootcamp.domain
+package com.bootcamp.config.domain
 
 import scala.concurrent.duration.FiniteDuration
 

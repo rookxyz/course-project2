@@ -1,7 +1,7 @@
-package com.bootcamp.streamreader
+package com.bootcamp.config
 
 import cats.effect.IO
-import com.bootcamp.domain.AppConfig
+import com.bootcamp.config.domain.AppConfig
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 import pureconfig.generic.auto._
@@ -14,6 +14,6 @@ trait FetchApplicationConfig[A] {
 object FetchApplicationConfig extends FetchApplicationConfig[AppConfig] {
   override def apply: IO[AppConfig] =
     ConfigSource
-      .fromConfig(ConfigFactory.load("application")) // separate service
-      .loadF[IO, AppConfig]
+      .fromConfig(ConfigFactory.load("application"))
+      .loadF[IO, AppConfig]()
 }

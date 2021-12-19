@@ -1,9 +1,12 @@
 package com.bootcamp.streamreader
 
 import cats.effect.IO
-import com.bootcamp.domain.{KafkaConfig, PlayerGameRound, PlayerId, Port}
+import com.bootcamp.config.domain.{KafkaConfig, Port}
+import com.bootcamp.domain.{PlayerGameRound, PlayerId}
 import fs2.kafka.{AutoOffsetReset, CommittableOffsetBatch, ConsumerSettings, Deserializer, KafkaConsumer}
 import io.circe.parser.decode
+import org.typelevel.log4cats.SelfAwareStructuredLogger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class ConsumePlayerData(
   kafkaConfig: KafkaConfig,
@@ -12,6 +15,7 @@ class ConsumePlayerData(
 ) {
 
   def start: IO[Unit] = stream.compile.drain
+  val logger = Slf4jLogger.create[IO]
 
   val port: Port = kafkaConfig.port
 
@@ -36,20 +40,22 @@ class ConsumePlayerData(
       )
       .evalMap { chunk =>
         val playerRounds: IO[Seq[(PlayerId, PlayerGameRound)]] = IO {
-          chunk.foldLeft(Seq.empty[(PlayerId, PlayerGameRound)]) { case (a, b) =>
-            val playerId = PlayerId(b.record.key)
-            val playerGameRound = {
+          chunk
+            .foldLeft(Seq.empty[Option[(PlayerId, PlayerGameRound)]]) { case (a, b) =>
+              val playerId = PlayerId(b.record.key)
+
               decode[PlayerGameRound](b.record.value) match {
-                case Left(e) =>
-                  println(b.record.value)
-                  throw new RuntimeException(
-                    s"Error: Could not create PlayerGameRound from Json. $e",
-                  ) // TODO Log unsuccessful decode
-                case Right(playerGameRound) => playerGameRound
+                case Left(e) => // TODO I do not see the logs appear
+                  logger.flatMap(_.error(e)(s"ERROR: Could not create PlayerGameRound from Json: ${b.record.value}"))
+                  Slf4jLogger.create[IO].flatMap(_.error(e)("Failed to start"))
+                  Seq(Option.empty[(PlayerId, PlayerGameRound)])
+//                  throw new RuntimeException(
+//                    s"Error: Could not create PlayerGameRound from Json. $e",
+//                  )
+                case Right(playerGameRound) => a :+ Some((playerId, playerGameRound))
               }
             }
-            a :+ (playerId, playerGameRound)
-          }
+            .flatten
         }
         val updatedProfiles = for {
           playerRounds <- playerRounds

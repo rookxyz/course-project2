@@ -30,18 +30,9 @@ import com.amazonaws.services.dynamodbv2.model.{
   TableDescription,
   TableStatus,
 }
-import com.bootcamp.domain.{
-  Cluster,
-  DbConfig,
-  GameTypeActivity,
-  KafkaConfig,
-  Money,
-  PlayerGamePlay,
-  PlayerId,
-  PlayerSessionProfile,
-  Port,
-  SeqNum,
-}
+import com.bootcamp.config.DbConfig
+import com.bootcamp.config.domain.{DbConfig, KafkaConfig, Port}
+import com.bootcamp.domain.{Cluster, GameTypeActivity, Money, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNum}
 import com.bootcamp.playerrepository.PlayerRepository
 import org.scalatest.BeforeAndAfter
 

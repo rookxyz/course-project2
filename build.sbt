@@ -17,7 +17,7 @@ lazy val global = project
 lazy val domain = (project in file("domain"))
   .settings(
     name := "domain",
-    libraryDependencies ++= domainLibs,
+    libraryDependencies ++= domainLibs ++ globalLibs,
   )
 
 lazy val playerRepository = (project in file("player-repository"))

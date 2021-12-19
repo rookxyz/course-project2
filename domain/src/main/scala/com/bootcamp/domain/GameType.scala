@@ -18,7 +18,7 @@ object GameType {
 
   case object NeverLoseBaccarat extends GameType
 
-  case object UnknownGameType extends GameType // TODO Log warning in this case
+  case object UnknownGameType extends GameType // TODO Log warning in this case or push to another Kafka topic
 
   implicit val gameTypeDecoder: Decoder[GameType] =
     extras.semiauto
