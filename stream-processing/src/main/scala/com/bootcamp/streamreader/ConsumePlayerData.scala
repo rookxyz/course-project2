@@ -1,21 +1,22 @@
 package com.bootcamp.streamreader
 
-import cats.effect.IO
+import cats.effect.{IO, Sync}
 import com.bootcamp.config.domain.{KafkaConfig, Port}
 import com.bootcamp.domain.{PlayerGameRound, PlayerId}
 import fs2.kafka.{AutoOffsetReset, CommittableOffsetBatch, ConsumerSettings, Deserializer, KafkaConsumer}
 import io.circe.parser.decode
-import org.typelevel.log4cats.SelfAwareStructuredLogger
+import org.typelevel.log4cats.{Logger, SelfAwareStructuredLogger}
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class ConsumePlayerData(
   kafkaConfig: KafkaConfig,
   updatePlayerProfile: UpdatePlayerProfile,
   createTemporaryPlayerProfile: CreateTemporaryPlayerProfile,
+  logger: SelfAwareStructuredLogger[IO],
 ) {
 
   def start: IO[Unit] = stream.compile.drain
-  val logger = Slf4jLogger.create[IO]
+  implicit def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
 
   val port: Port = kafkaConfig.port
 
@@ -46,12 +47,8 @@ class ConsumePlayerData(
 
               decode[PlayerGameRound](b.record.value) match {
                 case Left(e) => // TODO I do not see the logs appear
-                  logger.flatMap(_.error(e)(s"ERROR: Could not create PlayerGameRound from Json: ${b.record.value}"))
-                  Slf4jLogger.create[IO].flatMap(_.error(e)("Failed to start"))
-                  Seq(Option.empty[(PlayerId, PlayerGameRound)])
-//                  throw new RuntimeException(
-//                    s"Error: Could not create PlayerGameRound from Json. $e",
-//                  )
+                  logger.warn(e)(s"WARN: Could not create PlayerGameRound from Json: ${b.record.value}")
+                  a :+ Option.empty[(PlayerId, PlayerGameRound)]
                 case Right(playerGameRound) => a :+ Some((playerId, playerGameRound))
               }
             }

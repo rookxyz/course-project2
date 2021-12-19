@@ -2,22 +2,9 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.config.KafkaConfig
 import com.bootcamp.config.domain.{KafkaConfig, Port}
-import com.bootcamp.domain.{
-  Cluster,
-  GameId,
-  GameTypeActivity,
-  Money,
-  PlayerGamePlay,
-  PlayerGameRound,
-  PlayerId,
-  PlayerSessionProfile,
-  SeqNum,
-  TableId,
-}
+import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
-import com.bootcamp.streamreader.ConsumePlayerData
 import com.bootcamp.domain._
 import com.bootcamp.domain.GameType._
 import io.circe
@@ -44,13 +31,17 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val program =
-      Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      _ <- logger.error(s"First log!")
+      - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
+    } yield ()
     withRunningKafkaOnFoundPort(config) { implicit config =>
       publishToKafka("topic", "p1", "message1")(
         config,
@@ -108,13 +99,15 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val program =
-      Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      li <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
+    } yield li
     val message1 =
       """
         |    {
@@ -202,14 +195,16 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
-    val program =
-      rref.flatMap { ref =>
+
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
+    } yield ()
     val message1 =
       """
         |    {
@@ -244,13 +239,15 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
-    val program = rref.flatMap { ref =>
-      val state = UpdatePlayerProfile(ref, repository)
-      val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
-      consumer.stream.take(3).compile.toList // read one record and exit
-    }
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+        val state = UpdatePlayerProfile(ref, repository)
+        val service = CreateTemporaryPlayerProfile.apply
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
+        consumer.stream.take(1).compile.toList // read one record and exit
+      }
+    } yield ()
 
     val expected = Some(
       PlayerSessionProfile(
@@ -332,18 +329,22 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     }
   }
   test("Aggregates multiple player game play test") {
-    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 2, 2.seconds)
+    val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
     val repository = PlayerRepository.inMem
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
     val ref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty).unsafeRunSync()
-    val program: IO[List[Unit]] = {
-      val state = UpdatePlayerProfile(ref, repository)
-      val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
-      consumer.stream.take(2).compile.toList // read one record and exit
-    }
+
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- IO {
+        val state = UpdatePlayerProfile(ref, repository)
+        val service = CreateTemporaryPlayerProfile.apply
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
+        consumer.stream.take(2).compile.toList // read one record and exit
+      }
+    } yield ()
     val message1 =
       """
         |    {
@@ -504,13 +505,16 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     )
     repository.store(Seq(initRepository)).unsafeRunSync()
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map(PlayerId("p1") -> initState))
-    val program = rref.flatMap { ref =>
-      val state = UpdatePlayerProfile(ref, repository)
-      val service = CreateTemporaryPlayerProfile.apply
-      val consumer = new ConsumePlayerData(kafkaConfig, state, service)
-      consumer.stream.take(3).compile.toList // read one record and exit
-    }
 
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- rref flatMap { ref =>
+        val state = UpdatePlayerProfile(ref, repository)
+        val service = CreateTemporaryPlayerProfile.apply
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
+        consumer.stream.take(3).compile.toList // read one record and exit
+      }
+    } yield ()
     val expected = Some(
       PlayerSessionProfile(
         PlayerId("p1"),

@@ -27,4 +27,6 @@ object GameType {
 
   implicit val gameTypeEncoder: Encoder[GameType] =
     extras.semiauto.deriveEnumerationEncoder
+
+  implicit def ordering: Ordering[GameType] = Ordering.by(_.getClass.getName)
 }

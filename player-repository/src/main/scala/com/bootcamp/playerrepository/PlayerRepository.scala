@@ -29,6 +29,8 @@ trait PlayerRepository {
   def readClusterByPlayerId(
     playerId: PlayerId,
   ): IO[Option[Cluster]]
+
+  def readPlayersByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]]
 }
 
 trait InMemPlayerRepository extends PlayerRepository {
@@ -74,6 +76,11 @@ object PlayerRepository {
 
     def readClusterByPlayerId(playerId: PlayerId): IO[Option[Cluster]] =
       IO.pure { Some(Cluster(1)) }
+
+    def readPlayersByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] = IO.pure {
+      Seq.empty[PlayerSessionProfile]
+    }
+
   }
 
   def dynamoDb(config: DbConfig): PlayerRepository = new PlayerRepository {
@@ -165,7 +172,7 @@ object PlayerRepository {
 
       }
 
-    def readProfilesByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
+    def readPlayersByCluster(cluster: Cluster): IO[Seq[PlayerSessionProfile]] =
       IO {
         val globalIndex = profilesTable.getIndex("ClusterIndex")
         val indexQuery = globalIndex.query("cluster", cluster.value)

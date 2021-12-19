@@ -30,11 +30,11 @@ import com.amazonaws.services.dynamodbv2.model.{
   TableDescription,
   TableStatus,
 }
-import com.bootcamp.config.DbConfig
 import com.bootcamp.config.domain.{DbConfig, KafkaConfig, Port}
 import com.bootcamp.domain.{Cluster, GameTypeActivity, Money, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNum}
 import com.bootcamp.playerrepository.PlayerRepository
 import org.scalatest.BeforeAndAfter
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.io.ByteArrayOutputStream
 import java.time.Instant
@@ -232,13 +232,15 @@ class ReadDynamoDbSpec
     )
     val repository = PlayerRepository(dbConfig)
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
-    val program =
-      rref.flatMap { ref =>
+    val program = for {
+      logger <- Slf4jLogger.create[IO]
+      - <- rref flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new ConsumePlayerData(kafkaConfig, state, service)
+        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
+    } yield ()
     val message1 =
       """
         |    {

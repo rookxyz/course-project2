@@ -27,6 +27,6 @@ final case class DbConfig(
 
 final case class AppConfig(
   kafka: KafkaConfig,
-  http: HttpConfig,
   db: DbConfig,
+  http: HttpConfig,
 )

@@ -12,8 +12,10 @@ trait FetchApplicationConfig[A] {
 }
 
 object FetchApplicationConfig extends FetchApplicationConfig[AppConfig] {
-  override def apply: IO[AppConfig] =
-    ConfigSource
-      .fromConfig(ConfigFactory.load("application"))
-      .loadF[IO, AppConfig]()
+  def apply: IO[AppConfig] = {
+    val config = ConfigSource
+      .fromConfig(ConfigFactory.load("application/application"))
+    println(config.config())
+    config.loadF[IO, AppConfig]()
+  }
 }
