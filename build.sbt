@@ -39,6 +39,7 @@ lazy val streams = (project in file("stream-processing"))
   .settings(
     name := "stream-processing",
     libraryDependencies ++= streamLibs ++ globalLibs ++ testLibs,
+    Test / fork := true,
   )
   .dependsOn(domain, playerRepository)
 

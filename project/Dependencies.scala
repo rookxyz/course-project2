@@ -18,6 +18,7 @@ object Dependencies {
   val amazonAwsVersion = "1.11.864"
   val testVersion = "test"
   val log4catsVersion = "2.1.1"
+  val testcontainersScalaVersion = "0.39.12"
 
   val globalLibs = Seq(
     "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion,
@@ -57,9 +58,11 @@ object Dependencies {
   )
 
   val testLibs = Seq(
-    "org.scalatest"           %% "scalatest"           % scalaTestVersion       % testVersion,
-    "io.github.embeddedkafka" %% "embedded-kafka"      % embeddedKafkaVersion   % Test,
-    "org.scalameta"           %% "munit"               % munitVersion           % Test,
-    "org.typelevel"           %% "munit-cats-effect-3" % munitCatsEffectVersion % Test,
+    "org.scalatest"           %% "scalatest"                     % scalaTestVersion           % testVersion,
+    "io.github.embeddedkafka" %% "embedded-kafka"                % embeddedKafkaVersion       % Test,
+    "org.scalameta"           %% "munit"                         % munitVersion               % Test,
+    "org.typelevel"           %% "munit-cats-effect-3"           % munitCatsEffectVersion     % Test,
+    "com.dimafeng"            %% "testcontainers-scala-munit"    % testcontainersScalaVersion % Test,
+    "com.dimafeng"            %% "testcontainers-scala-dynalite" % testcontainersScalaVersion % Test,
   )
 }

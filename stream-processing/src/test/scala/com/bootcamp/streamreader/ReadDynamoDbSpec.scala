@@ -50,50 +50,7 @@ class ReadDynamoDbSpec
     with Eventually
     with IntegrationPatience {
 
-  def createDbTables(config: DbConfig)(implicit db: DynamoDB): Map[String, Table] = {
-    val attributeCluster = new AttributeDefinition("cluster", ScalarAttributeType.N)
-    val attributePlayerId = new AttributeDefinition("playerId", ScalarAttributeType.S)
-    //    val attributeProfile = new AttributeDefinition("gzipprofile", ScalarAttributeType.B)
-
-    val createProfilesTableReq = new CreateTableRequest()
-      .withTableName(config.playerProfileTableName)
-      .withKeySchema(new KeySchemaElement().withKeyType("HASH").withAttributeName("playerId"))
-      .withAttributeDefinitions(attributePlayerId, attributeCluster)
-      .withGlobalSecondaryIndexes(
-        new GlobalSecondaryIndex()
-          .withIndexName("ClusterIndex")
-          .withKeySchema(
-            new KeySchemaElement()
-              .withKeyType("HASH")
-              .withAttributeName("cluster"),
-          )
-          .withProjection(new Projection().withProjectionType("ALL"))
-          .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(5L).withWriteCapacityUnits(5L)),
-      )
-      .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(5L).withWriteCapacityUnits(5L))
-
-    val createClustersTableReq = new CreateTableRequest()
-      .withTableName(config.clusterTableName)
-      .withKeySchema(new KeySchemaElement().withKeyType("HASH").withAttributeName("playerId"))
-      .withAttributeDefinitions(attributePlayerId)
-      .withProvisionedThroughput(new ProvisionedThroughput().withReadCapacityUnits(5L).withWriteCapacityUnits(5L))
-
-    val t2 = db.createTable(createProfilesTableReq)
-    //    println("t1 created")
-    val t3 = db.createTable(createClustersTableReq)
-    //    println("t2 created")
-    t2.waitForActive()
-    t3.waitForActive()
-    //    t2.delete()
-    //    t3.delete()
-    Map("profiles" -> t2, "clusters" -> t3)
-
-  }
-
-  def deleteDbTables(implicit db: DynamoDB): Unit = db.listTables().forEach { t =>
-    t.delete()
-    t.waitForDelete()
-  }
+  import CreateDynamoDbTables._
 
   test("List DynamoDB tables") {
 
