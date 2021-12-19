@@ -37,7 +37,7 @@ object RecommenderserviceServer {
       println(s"Got request for player $playerId")
 
       val playerIdObj = PlayerId(playerId)
-      (for {
+      (for { // TODO refactor, fix bug that returns played gametypes
         playerCluster <- playerRepository.readClusterByPlayerId(playerIdObj)
         playersWithCluster <- playerRepository.readPlayersByCluster(playerCluster.get)
 //        response <- Ok(playersWithCluster.toString())
