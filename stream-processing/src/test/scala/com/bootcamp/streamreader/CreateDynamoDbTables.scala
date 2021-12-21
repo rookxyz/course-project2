@@ -10,7 +10,7 @@ import com.amazonaws.services.dynamodbv2.model.{
   ProvisionedThroughput,
   ScalarAttributeType,
 }
-import com.bootcamp.config.domain.DbConfig
+import com.bootcamp.config.DbConfig
 
 object CreateDynamoDbTables {
   def createDbTables(config: DbConfig)(implicit db: DynamoDB): Map[String, Table] = {

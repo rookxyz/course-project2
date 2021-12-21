@@ -1,4 +1,4 @@
-package com.bootcamp.config.domain
+package com.bootcamp.config
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -24,9 +24,14 @@ final case class DbConfig(
   playerProfileTableName: String,
   clusterTableName: String,
 )
+trait ApplicationConfig
 
-final case class AppConfig(
+final case class StreamConfig(
   kafka: KafkaConfig,
   db: DbConfig,
+) extends ApplicationConfig
+
+final case class RecommenderHttpConfig(
+  db: DbConfig,
   http: HttpConfig,
-)
+) extends ApplicationConfig

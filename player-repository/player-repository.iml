@@ -10,7 +10,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="domain" exported="" />
+    <orderEntry type="module" module-name="course-project2.common" exported="" />
     <orderEntry type="library" name="sbt: co.fs2:fs2-core_2.12:3.1.6:jar" level="project" />
     <orderEntry type="library" name="sbt: com.amazonaws:aws-java-sdk-core:1.11.864:jar" level="project" />
     <orderEntry type="library" name="sbt: com.amazonaws:aws-java-sdk-dynamodb:1.11.864:jar" level="project" />

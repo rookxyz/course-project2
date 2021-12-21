@@ -19,6 +19,7 @@ object Dependencies {
   val testVersion = "test"
   val log4catsVersion = "2.1.1"
   val testcontainersScalaVersion = "0.39.12"
+  val slf4jVersion = "1.7.5"
 
   val globalLibs = Seq(
     "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion,
@@ -55,6 +56,8 @@ object Dependencies {
     "co.fs2"          %% "fs2-core"      % fs2Version,
     "io.circe"        %% "circe-fs2"     % circeFs2Version,
     "org.apache.kafka" % "kafka-clients" % kafkaVersion,
+//    "org.slf4j"        % "slf4j-api"     % "1.7.5", // TODO perhaps this can be removed
+    "org.slf4j" % "slf4j-simple" % slf4jVersion,
   )
 
   val testLibs = Seq(

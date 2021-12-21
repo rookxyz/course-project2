@@ -14,9 +14,9 @@ lazy val global = project
 //    libraryDependencies ++= globalLibs,
   )
 
-lazy val domain = (project in file("domain"))
+lazy val common = (project in file("common"))
   .settings(
-    name := "domain",
+    name := "common",
     libraryDependencies ++= domainLibs ++ globalLibs,
   )
 
@@ -25,7 +25,7 @@ lazy val playerRepository = (project in file("player-repository"))
     name := "player-repository",
     libraryDependencies ++= repositoryLibs ++ globalLibs,
   )
-  .dependsOn(domain)
+  .dependsOn(common)
 
 lazy val http = (project in file("recommender-service"))
   .settings(
@@ -33,7 +33,7 @@ lazy val http = (project in file("recommender-service"))
     scalacOptions += "-Ypartial-unification",
     libraryDependencies ++= httpLibs ++ globalLibs,
   )
-  .dependsOn(domain, playerRepository)
+  .dependsOn(common, playerRepository)
 
 lazy val streams = (project in file("stream-processing"))
   .settings(
@@ -41,7 +41,7 @@ lazy val streams = (project in file("stream-processing"))
     libraryDependencies ++= streamLibs ++ globalLibs ++ testLibs,
     Test / fork := true,
   )
-  .dependsOn(domain, playerRepository)
+  .dependsOn(common, playerRepository)
 
 lazy val integration = project
   .settings(name := "integration")

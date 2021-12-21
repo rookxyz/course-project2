@@ -30,7 +30,8 @@ import com.amazonaws.services.dynamodbv2.model.{
   TableDescription,
   TableStatus,
 }
-import com.bootcamp.config.domain.{DbConfig, KafkaConfig, Port}
+import com.bootcamp.config.DbConfig
+import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
 import com.bootcamp.domain.{Cluster, GameTypeActivity, Money, PlayerGamePlay, PlayerId, PlayerSessionProfile, SeqNum}
 import com.bootcamp.playerrepository.PlayerRepository
 import org.scalatest.BeforeAndAfter
@@ -201,7 +202,7 @@ class ReadDynamoDbSpec
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val repository = PlayerRepository(dbConfig)
+    val repository = PlayerRepository(dbConfig).unsafeRunSync()
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
     val program = for {
       logger <- Slf4jLogger.create[IO]
@@ -326,7 +327,7 @@ class ReadDynamoDbSpec
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val repository = PlayerRepository(dbConfig)
+    val repository = PlayerRepository(dbConfig).unsafeRunSync()
     val rref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty)
     val program = for {
       logger <- Slf4jLogger.create[IO]

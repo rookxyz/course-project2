@@ -1,23 +1,30 @@
 package com.bootcamp.streamreader
 
-import cats.effect.{IO, Sync}
-import com.bootcamp.config.domain.{KafkaConfig, Port}
+import cats.effect.IO
+import com.bootcamp.config.{KafkaConfig, Port}
 import com.bootcamp.domain.{PlayerGameRound, PlayerId}
 import fs2.kafka.{AutoOffsetReset, CommittableOffsetBatch, ConsumerSettings, Deserializer, KafkaConsumer}
 import io.circe.parser.decode
-import org.typelevel.log4cats.{Logger, SelfAwareStructuredLogger}
+import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+
+object ConsumePlayerData {
+  def of(
+    kafkaConfig: KafkaConfig,
+    updatePlayerProfile: UpdatePlayerProfile,
+    createTemporaryPlayerProfile: CreateTemporaryPlayerProfile,
+  ): IO[ConsumePlayerData] =
+    Slf4jLogger.create[IO].map(new ConsumePlayerData(kafkaConfig, updatePlayerProfile, createTemporaryPlayerProfile, _))
+}
 
 class ConsumePlayerData(
   kafkaConfig: KafkaConfig,
   updatePlayerProfile: UpdatePlayerProfile,
   createTemporaryPlayerProfile: CreateTemporaryPlayerProfile,
-  logger: SelfAwareStructuredLogger[IO],
+  log: Logger[IO],
 ) {
 
   def start: IO[Unit] = stream.compile.drain
-  implicit def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
-
   val port: Port = kafkaConfig.port
 
   val consumerSettings: ConsumerSettings[IO, String, String] =
@@ -40,24 +47,23 @@ class ConsumePlayerData(
         kafkaConfig.chunkTimeout,
       )
       .evalMap { chunk =>
-        val playerRounds: IO[Seq[(PlayerId, PlayerGameRound)]] = IO {
+        val playerRounds: IO[Seq[Either[(Throwable, String), (PlayerId, PlayerGameRound)]]] = IO {
           chunk
-            .foldLeft(Seq.empty[Option[(PlayerId, PlayerGameRound)]]) { case (a, b) =>
+            .foldLeft(Seq.empty[Either[(Throwable, String), (PlayerId, PlayerGameRound)]]) { case (a, b) =>
               val playerId = PlayerId(b.record.key)
-
               decode[PlayerGameRound](b.record.value) match {
-                case Left(e) => // TODO I do not see the logs appear
-                  logger.warn(e)(s"WARN: Could not create PlayerGameRound from Json: ${b.record.value}")
-                  a :+ Option.empty[(PlayerId, PlayerGameRound)]
-                case Right(playerGameRound) => a :+ Some((playerId, playerGameRound))
+                case Left(e)                => a :+ Left((e, b.record.value))
+                case Right(playerGameRound) => a :+ Right((playerId, playerGameRound))
               }
             }
-            .flatten
         }
+        import cats.implicits._
         val updatedProfiles = for {
-          playerRounds <- playerRounds
-          temporaryProfiles <- createTemporaryPlayerProfile.apply(playerRounds)
+          validRounds <- playerRounds.map(_.flatMap(_.toOption))
+          invalidRounds <- playerRounds.map(_.flatMap(_.swap.toOption))
+          temporaryProfiles <- createTemporaryPlayerProfile.apply(validRounds)
           _ <- updatePlayerProfile.apply(temporaryProfiles)
+          _ <- invalidRounds.toList.traverse_(e => log.warn(s"${e._1.getMessage} ${e._2}"))
         } yield ()
 
         updatedProfiles

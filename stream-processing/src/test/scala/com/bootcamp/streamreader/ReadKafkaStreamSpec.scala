@@ -2,11 +2,12 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.config.domain.{KafkaConfig, Port}
+import com.bootcamp.config.KafkaConfig
 import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
 import com.bootcamp.domain._
 import com.bootcamp.domain.GameType._
+import com.bootcamp.config.{KafkaConfig, Port}
 import io.circe
 import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
@@ -18,6 +19,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.time.Instant
@@ -27,19 +29,20 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
   test("Runtime exception on invalid message test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository()
+    val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-
+    val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
     val program = for {
-      logger <- Slf4jLogger.create[IO]
-      _ <- logger.error(s"First log!")
+//      logger <- Slf4jLogger.getLogger[IO]
+      _ <- logger.info(s"First log!")
       - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
-        consumer.stream.take(1).compile.toList // read one record and exit
+        val consumer = ConsumePlayerData.of(kafkaConfig, state, service)
+        consumer.flatMap(_.stream.take(1).compile.toList)
+//        consumer.stream.take(1).compile.toList // read one record and exit
       }
     } yield ()
     withRunningKafkaOnFoundPort(config) { implicit config =>
@@ -95,7 +98,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
   test("Accepts correct Json test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository()
+    val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
@@ -190,7 +193,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
 //    val dbConfig = DbConfig("localhost", Port(22222), "aaa", "bbbb", "profiles", "clusters")
-    val repository = PlayerRepository()
+    val repository = PlayerRepository().unsafeRunSync()
 
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
@@ -235,7 +238,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
   test("Aggregates players game play test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository()
+    val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
@@ -330,7 +333,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
   }
   test("Aggregates multiple player game play test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository.inMem
+    val repository = PlayerRepository.inMem.unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
@@ -469,7 +472,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
   test("Out of order sequence number test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository()
+    val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
@@ -508,6 +511,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
 
     val program = for {
       logger <- Slf4jLogger.create[IO]
+
       - <- rref flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
@@ -592,6 +596,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
       program.unsafeRunTimed(10.seconds)
 
       repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+
     }
   }
 }

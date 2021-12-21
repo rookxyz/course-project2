@@ -5,11 +5,12 @@ import cats.effect.kernel.Ref
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey}
-import com.bootcamp.config.domain.{DbConfig, KafkaConfig, Port}
+import com.bootcamp.config.DbConfig
 import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
 import com.bootcamp.domain._
 import com.bootcamp.domain.GameType._
+import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
 import com.dimafeng.testcontainers.{ContainerDef, DynaliteContainer, GenericContainer}
 import com.dimafeng.testcontainers.munit.TestContainerForEach
 import io.circe
@@ -70,7 +71,7 @@ class ProcessStreamWithContainerSpec
       println(s"Container started running on port: ${x.getPort}")
       val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
       val dbConfig = DbConfig(s"http://localhost:${x.getPort}", "aaa", "bbbb", "profiles3", "clusters3")
-      val repository = PlayerRepository(dbConfig)
+      val repository = PlayerRepository(dbConfig).unsafeRunSync()
       val config = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,
       )
