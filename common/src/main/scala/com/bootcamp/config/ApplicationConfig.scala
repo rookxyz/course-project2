@@ -19,6 +19,8 @@ final case class HttpConfig(
 )
 final case class DbConfig(
   endpoint: String,
+  maxRetries: Int,
+  retryDelayMillis: Int,
   accessKeyId: String, // TODO need to read this from file system later
   secretAccessKey: String, // TODO need to read this from file system later
   playerProfileTableName: String,

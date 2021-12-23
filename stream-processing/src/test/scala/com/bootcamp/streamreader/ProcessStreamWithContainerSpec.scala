@@ -70,7 +70,7 @@ class ProcessStreamWithContainerSpec
       val x = containerDef.start()
       println(s"Container started running on port: ${x.getPort}")
       val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-      val dbConfig = DbConfig(s"http://localhost:${x.getPort}", "aaa", "bbbb", "profiles3", "clusters3")
+      val dbConfig = DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3")
       val repository = PlayerRepository(dbConfig).unsafeRunSync()
       val config = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,

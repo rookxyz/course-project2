@@ -60,10 +60,14 @@ class ConsumePlayerData(
         import cats.implicits._
         val updatedProfiles = for {
           validRounds <- playerRounds.map(_.flatMap(_.toOption))
+          _ = println(s"Got valid rounds: $validRounds")
           invalidRounds <- playerRounds.map(_.flatMap(_.swap.toOption))
+          _ = println(s"Got invalid rounds: $invalidRounds")
           temporaryProfiles <- createTemporaryPlayerProfile.apply(validRounds)
           _ <- updatePlayerProfile.apply(temporaryProfiles)
-          _ <- invalidRounds.toList.traverse_(e => log.warn(s"${e._1.getMessage} ${e._2}"))
+          _ <- invalidRounds.toList.traverse_(e =>
+            log.warn(s"Could not decode Game Round Json ${e._1.getMessage} ${e._2}"),
+          )
         } yield ()
 
         updatedProfiles

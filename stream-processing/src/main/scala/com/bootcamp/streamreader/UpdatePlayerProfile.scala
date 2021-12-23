@@ -27,7 +27,6 @@ object UpdatePlayerProfile {
               currentProfile <- currentState.get(profile.playerId)
               lastSeqNum = currentProfile.lastSeqNum
               firstSeqNum = profile.firstSeqNum
-              _ = println(s"Last in state: $lastSeqNum, first in temp profile: $firstSeqNum")
               if !lastSeqNum.isNext(firstSeqNum)
             } yield (profile.playerId)
           }
@@ -36,13 +35,6 @@ object UpdatePlayerProfile {
               playerIdsMissingInState ++ playerIdsOutOfSequence,
             )
           updatedState <- ref.updateAndGet { state =>
-            println(s"Players Ids our of seq: $playerIdsOutOfSequence")
-            println(s"State before update: $state")
-            println(s"missing players in state: $playerIdsMissingInState")
-            println(s"Repository data for missing: $repositoryDataForMissing")
-            println(s"Player profiles to be added: $playerProfiles")
-
-            //     ((state -- playerIdsOutOfSequence) ++ repositoryDataForMissing) |+| playerProfiles // Missing on the left side so that cluster data is accurate
             lazy val missingPlayerProfilesMap = repositoryDataForMissing
               .map(i => i.playerId -> i)
               .toMap
@@ -51,9 +43,7 @@ object UpdatePlayerProfile {
               .toMap
             (state -- playerIdsOutOfSequence) |+| missingPlayerProfilesMap |+| playerProfilesMap
           }
-          currentState <- ref.get // TODO remove debug printlns
-          _ = println(s"currentState ${currentState}")
-          _ = println(s"updatedState ${updatedState}")
+          currentState <- ref.get
           changedProfiles = updatedState
             .filterKeys(k => playerIds.contains(k))
             .values

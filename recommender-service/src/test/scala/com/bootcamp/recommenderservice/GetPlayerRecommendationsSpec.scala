@@ -95,17 +95,17 @@ class MySpec extends FunSuite with Matchers {
     GetPlayerRecommendations.getAllGameTypes(input) shouldBe expected
   }
 
-  test("Get all player full activity sparse array test") {
+  test("Get all player full activity sparse Vector test") {
     val gameTypes = List(Baccarat, Roulette, SpinForeverRoulette)
     val playerGamePlayRounds: Seq[(PlayerId, Map[GameType, Long])] = Seq(
       PlayerId("p1") -> Map(Baccarat -> 1, Roulette -> 1),
       PlayerId("p2") -> Map(Baccarat -> 1),
       PlayerId("p3") -> Map(Roulette -> 1, SpinForeverRoulette -> 4),
     )
-    val expected: Map[PlayerId, Array[Float]] = Map(
-      PlayerId("p1") -> Array(1f, 1f, 0f),
-      PlayerId("p2") -> Array(1f, 0f, 0f),
-      PlayerId("p3") -> Array(0f, 0.25f, 1f),
+    val expected: Map[PlayerId, Vector[Float]] = Map(
+      PlayerId("p1") -> Vector(1f, 1f, 0f),
+      PlayerId("p2") -> Vector(1f, 0f, 0f),
+      PlayerId("p3") -> Vector(0f, 0.25f, 1f),
     )
     GetPlayerRecommendations
       .getPlayerFullActivityMap(
@@ -117,11 +117,11 @@ class MySpec extends FunSuite with Matchers {
   }
 
   test("Get top 2 similar players test") {
-    val thisPlayerActivity = Array(1f, 0f, 0f)
+    val thisPlayerActivity = Vector(1f, 0f, 0f)
     val otherPlayerActivity = Map(
-      PlayerId("p2") -> Array(1f, 0f, 0f),
-      PlayerId("p3") -> Array(0f, 0.25f, 1f),
-      PlayerId("p4") -> Array(0.25f, 0f, 1f),
+      PlayerId("p2") -> Vector(1f, 0f, 0f),
+      PlayerId("p3") -> Vector(0f, 0.25f, 1f),
+      PlayerId("p4") -> Vector(0.25f, 0f, 1f),
     )
     val expected = Map(
       PlayerId("p2") -> 1f,
@@ -139,8 +139,8 @@ class MySpec extends FunSuite with Matchers {
   test("Calculate average game play test") {
     val allGameTypes = List(Baccarat, Roulette, SpinForeverRoulette)
     val otherPlayerActivity = Map(
-      PlayerId("p4") -> Array(0.25f, 0f, 1f),
-      PlayerId("p2") -> Array(1f, 0f, 0f),
+      PlayerId("p4") -> Vector(0.25f, 0f, 1f),
+      PlayerId("p2") -> Vector(1f, 0f, 0f),
     )
     val expected = List((Baccarat, 0.625), (Roulette, 0.0), (SpinForeverRoulette, 0.5))
     GetPlayerRecommendations.getAveragedGamePlay(allGameTypes)(
@@ -150,8 +150,8 @@ class MySpec extends FunSuite with Matchers {
   test("Get player unseen game types sorted test") {
     val averagedGamePlay: List[(GameType, Float)] =
       List((Baccarat, 0.625f), (SpinForeverRoulette, 0.5f), (UltimateWinPoker, 0.0f), (Roulette, 0.0f))
-    val thisPlayerActivity = Array(1f, 0f, 0f, 0f)
-    val expected = List(SpinForeverRoulette, Roulette)
+    val thisPlayerActivity = Vector(1f, 0f, 0f, 0f)
+    val expected = List(SpinForeverRoulette, UltimateWinPoker, Roulette)
 
     GetPlayerRecommendations.getPlayerUnseenGameTypesSorted(thisPlayerActivity)(averagedGamePlay) shouldBe expected
 

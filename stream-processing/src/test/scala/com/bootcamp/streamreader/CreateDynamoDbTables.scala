@@ -52,30 +52,17 @@ object CreateDynamoDbTables {
 
   }
 
-  def fillClustersTable(clustersTable: Table): Unit = {
-    clustersTable
-      .putItem(
-        new Item()
-          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p1"))
-          .withNumber("cluster", 1),
-      )
-      .ensuring(true)
-    clustersTable
-      .putItem(
-        new Item()
-          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p2"))
-          .withNumber("cluster", 1),
-      )
-      .ensuring(true)
-    clustersTable
-      .putItem(
-        new Item()
-          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p3"))
-          .withNumber("cluster", 1),
-      )
-      .ensuring(true)
-
-  }
+  def fillClustersTable(clustersTable: Table, playersN: Int, clusters: Int): Unit =
+    (1 to playersN).map { i =>
+      val cluster = scala.util.Random.nextInt(clusters)
+      clustersTable
+        .putItem(
+          new Item()
+            .withPrimaryKey(new PrimaryKey().addComponent("playerId", s"p$i"))
+            .withNumber("cluster", cluster),
+        )
+        .ensuring(true)
+    }
 
   def deleteDbTables(implicit db: DynamoDB): Unit = db.listTables().forEach { t =>
     t.delete()

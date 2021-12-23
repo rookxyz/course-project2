@@ -1,4 +1,7 @@
-package com.bootcamp.playerrepository.utilities
+package com.bootcamp.playerrepository
+
+import cats.effect.IO
+import cats.effect.kernel.Resource
 
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
@@ -21,5 +24,16 @@ object CompressString {
     val res = Source.fromInputStream(gis, "UTF-8").getLines.take(1).toList.head
     gis.close
     res
+  }
+
+  def unCompressR(compressed: Array[Byte]): Resource[IO, String] = {
+    import java.io.ByteArrayInputStream
+    import java.util.zip.GZIPInputStream
+    for {
+      bis <- Resource.make(IO.pure(new ByteArrayInputStream(compressed)))(s => IO(s.close()))
+      gis <- Resource.make(IO.pure(new GZIPInputStream(bis)))(s => IO(s.close()))
+      res <- Resource.eval(IO(Source.fromInputStream(gis, "UTF-8").getLines.take(1).toList.head))
+    } yield res
+
   }
 }

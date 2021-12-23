@@ -14,12 +14,6 @@ import scala.reflect.ClassTag
 //}
 
 object FetchStreamingConfig extends {
-//  def apply: IO[AppConfig] = {
-//    val config = ConfigSource
-//      .fromConfig(ConfigFactory.load("application/application"))
-//    println(config.config())
-//    config.loadF[IO, AppConfig]()
-//  }
   implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
   def apply: IO[StreamConfig] =
     IO.delay(ConfigSource.default.at("application").loadOrThrow[StreamConfig])

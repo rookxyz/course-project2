@@ -167,7 +167,7 @@ class ReadDynamoDbSpec
     )
 
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val dbConfig = DbConfig("http://localhost:8000", "aaa", "bbbb", "profiles2", "clusters2")
+    val dbConfig = DbConfig("http://localhost:8000", 5, 1000, "aaa", "bbbb", "profiles2", "clusters2")
     ////// DB setup
     implicit val db: DynamoDB = new DynamoDB(
       AmazonDynamoDBClientBuilder.standard
@@ -293,7 +293,7 @@ class ReadDynamoDbSpec
       ),
     )
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val dbConfig = DbConfig("http://localhost:8000", "aaa", "bbbb", "profiles2", "clusters2")
+    val dbConfig = DbConfig("http://localhost:8000", 5, 1000, "aaa", "bbbb", "profiles2", "clusters2")
     ////// DB setup
     implicit val db: DynamoDB = new DynamoDB(
       AmazonDynamoDBClientBuilder.standard
