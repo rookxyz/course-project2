@@ -1,6 +1,6 @@
 package com.bootcamp.streamreader
 
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Table}
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table}
 import com.amazonaws.services.dynamodbv2.model.{
   AttributeDefinition,
   CreateTableRequest,
@@ -49,6 +49,31 @@ object CreateDynamoDbTables {
     t3.waitForActive()
 
     Map("profiles" -> t2, "clusters" -> t3)
+
+  }
+
+  def fillClustersTable(clustersTable: Table): Unit = {
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p1"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p2"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
+    clustersTable
+      .putItem(
+        new Item()
+          .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p3"))
+          .withNumber("cluster", 1),
+      )
+      .ensuring(true)
 
   }
 

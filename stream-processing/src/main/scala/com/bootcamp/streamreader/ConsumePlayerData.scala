@@ -31,7 +31,7 @@ class ConsumePlayerData(
     ConsumerSettings(
       keyDeserializer = Deserializer[IO, String],
       valueDeserializer = Deserializer[IO, String],
-    ) // TODO check if can decode to PlayerGameRound here
+    )
       .withAutoOffsetReset(AutoOffsetReset.Earliest)
       .withBootstrapServers(s"${kafkaConfig.host}:${port.value}")
       .withGroupId(kafkaConfig.groupId)

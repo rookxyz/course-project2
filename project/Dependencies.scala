@@ -24,9 +24,8 @@ object Dependencies {
   val globalLibs = Seq(
     "com.github.pureconfig" %% "pureconfig-cats-effect" % pureConfigVersion,
     "org.typelevel"         %% "cats-effect"            % catsEffectVersion,
-//    "io.chrisdavenport"      % "log4cats-core_2.12"     % log4catsVersion,
-    "org.typelevel"          % "log4cats-slf4j_2.12" % log4catsVersion,
-    "com.github.pureconfig" %% "pureconfig"          % pureConfigVersion,
+    "org.typelevel"          % "log4cats-slf4j_2.12"    % log4catsVersion,
+    "com.github.pureconfig" %% "pureconfig"             % pureConfigVersion,
   )
 
   val repositoryLibs = Seq(
@@ -56,16 +55,15 @@ object Dependencies {
     "co.fs2"          %% "fs2-core"      % fs2Version,
     "io.circe"        %% "circe-fs2"     % circeFs2Version,
     "org.apache.kafka" % "kafka-clients" % kafkaVersion,
-//    "org.slf4j"        % "slf4j-api"     % "1.7.5", // TODO perhaps this can be removed
-    "org.slf4j" % "slf4j-simple" % slf4jVersion,
+    "org.slf4j"        % "slf4j-simple"  % slf4jVersion,
   )
 
   val testLibs = Seq(
-    "org.scalatest"           %% "scalatest"                     % scalaTestVersion           % testVersion,
-    "io.github.embeddedkafka" %% "embedded-kafka"                % embeddedKafkaVersion       % Test,
-    "org.scalameta"           %% "munit"                         % munitVersion               % Test,
-    "org.typelevel"           %% "munit-cats-effect-3"           % munitCatsEffectVersion     % Test,
-    "com.dimafeng"            %% "testcontainers-scala-munit"    % testcontainersScalaVersion % Test,
-    "com.dimafeng"            %% "testcontainers-scala-dynalite" % testcontainersScalaVersion % Test,
+    "org.scalatest"           %% "scalatest"                  % scalaTestVersion           % testVersion,
+    "io.github.embeddedkafka" %% "embedded-kafka"             % embeddedKafkaVersion       % Test,
+    "org.scalameta"           %% "munit"                      % munitVersion               % Test,
+    "org.typelevel"           %% "munit-cats-effect-3"        % munitCatsEffectVersion     % Test,
+    "com.dimafeng"            %% "testcontainers-scala-munit" % testcontainersScalaVersion % Test,
+//    "com.dimafeng"            %% "testcontainers-scala-dynalite" % testcontainersScalaVersion % Test,
   )
 }

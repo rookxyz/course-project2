@@ -14,10 +14,10 @@ class HelloWorldSpec extends CatsEffectSuite {
 //  test("HelloWorld returns hello world message") {
 //    assertIO(retHelloWorld.flatMap(_.as[String]), "{\"message\":\"Hello, world\"}")
 //  }
-
+//
 //  private[this] val retHelloWorld: IO[Response[IO]] = {
-//    val getHW = Request[IO](Method.GET, uri"/hello/world")
-//    val helloWorld = HelloWorld.impl[IO]
-//    RecommenderserviceRoutes.helloWorldRoutes(helloWorld).orNotFound(getHW)
+//    val getRec = Request[IO](Method.GET, uri"/recommender/playerId/p1")
+//    val helloWorld = RunRecommenderHttpServer.re.impl[IO]
+//    RecommenderserviceRoutes.helloWorldRoutes(helloWorld).orNotFound(getRec)
 //  }
 }

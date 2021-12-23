@@ -2,10 +2,8 @@ package com.bootcamp.streamreader
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import com.bootcamp.config.KafkaConfig
 import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
-import com.bootcamp.domain._
 import com.bootcamp.domain.GameType._
 import com.bootcamp.config.{KafkaConfig, Port}
 import io.circe
@@ -14,11 +12,9 @@ import io.circe.syntax.EncoderOps
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 

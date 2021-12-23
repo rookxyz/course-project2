@@ -147,20 +147,23 @@ object PlayerRepository {
               val tableWriteItems = new TableWriteItems(profilesTable.getTableName)
                 .withItemsToPut(writeItems.asJavaCollection)
               storeWithRetry(IO(db.batchWriteItem(tableWriteItems)))
-            }
-            .map(_ => IO.unit)
+            } *> IO.unit
         }
 
-        def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] =
-          IO {
-            val item = profilesTable.getItem(new PrimaryKey().addComponent("playerId", playerId.id))
-            Try(unCompress(item.getBinary("gzipprofile"))) match {
-              case Failure(_) =>
-                None
-              case Success(value) =>
-                decode[PlayerSessionProfile](value).toOption
-            }
+        def readByPlayerId(playerId: PlayerId): IO[Option[PlayerSessionProfile]] = {
+          val result: IO[Option[PlayerSessionProfile]] = for {
+            response <- IO(
+              profilesTable.getItem(new PrimaryKey().addComponent("playerId", playerId.id)),
+            )
+            profileString = Try(unCompress(response.getBinary("gzipprofile"))).toOption
+            profile = decode[PlayerSessionProfile](profileString.getOrElse("")).toOption
+          } yield profile
+
+          result.handleErrorWith { e =>
+            log.error(e)(s"Could not get player $playerId from database") *>
+              IO.pure(Option.empty[PlayerSessionProfile])
           }
+        }
 
         def readByPlayerIds( // TODO use batch get item
           playerIds: Seq[PlayerId],

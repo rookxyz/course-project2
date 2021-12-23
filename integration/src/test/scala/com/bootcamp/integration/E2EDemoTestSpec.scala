@@ -1,35 +1,28 @@
-package com.bootcamp.streamreader
+package com.bootcamp.integration
 
-import cats.effect.IO
+import cats.effect.{IO}
 import cats.effect.kernel.Ref
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey}
-import com.bootcamp.config.DbConfig
+import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
+import com.bootcamp.domain.GameType._
 import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
-import com.bootcamp.domain._
-import com.bootcamp.domain.GameType._
-import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
-import com.dimafeng.testcontainers.{ContainerDef, GenericContainer}
+import com.bootcamp.recommenderservice.RunRecommenderHttpServer
+import com.bootcamp.streamreader.CreateDynamoDbTables
+import com.bootcamp.streamreader.{ConsumePlayerData, CreateTemporaryPlayerProfile, UpdatePlayerProfile}
+import com.dimafeng.testcontainers.GenericContainer
 import com.dimafeng.testcontainers.munit.TestContainerForEach
-import io.circe
-import io.circe.parser.decode
-import io.circe.syntax.EncoderOps
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-
-import java.time.Instant
+import fs2._
 import scala.concurrent.duration._
 
-class ProcessStreamWithContainerSpec
+class E2EDemoTestSpec
     extends munit.CatsEffectSuite
     with Matchers
     with EmbeddedKafka
@@ -37,15 +30,11 @@ class ProcessStreamWithContainerSpec
     with IntegrationPatience
     with TestContainerForEach {
 
-  import CreateDynamoDbTables._
-
   class DynamoContainer(port: Int, underlying: GenericContainer) extends GenericContainer(underlying) {
-    // you can add any methods or fields inside your container's body
     def getPort: String = s"${mappedPort(port)}"
   }
   object DynamoContainer {
 
-    // In the container definition you need to describe, how your container will be constructed:
     case class Def(port: Int)
         extends GenericContainer.Def[DynamoContainer](
           new DynamoContainer(
@@ -61,7 +50,6 @@ class ProcessStreamWithContainerSpec
   override val containerDef =
     DynamoContainer.Def(
       8000,
-      //command = Seq("java -jar DynamoDBLocal.jar -inMemory -sharedDb"),
     )
 
   test("Aggregates players game play test with test container") {
@@ -77,11 +65,18 @@ class ProcessStreamWithContainerSpec
       )
       val program = for {
         logger <- Slf4jLogger.create[IO]
+        httpServer <- RunRecommenderHttpServer.run
         - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
           val state = UpdatePlayerProfile(ref, repository)
           val service = CreateTemporaryPlayerProfile.apply
-          val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
-          consumer.stream.take(3).compile.toList // read one record and exit
+          val consumer =
+            new ConsumePlayerData(
+              kafkaConfig,
+              state,
+              service,
+              logger,
+            ) // TODO any way to use .run but mock the dbConfig?
+          consumer.stream.take(1000).compile.drain
         }
       } yield ()
 
@@ -92,30 +87,11 @@ class ProcessStreamWithContainerSpec
           .withEndpointConfiguration(new EndpointConfiguration(dbConfig.endpoint, "eu-central-1"))
           .build,
       )
-//      deleteDbTables
-      val tablesMap = createDbTables(dbConfig)
-      val clustersTable = tablesMap.get("clusters")
-      clustersTable.get
-        .putItem(
-          new Item()
-            .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p1"))
-            .withNumber("cluster", 1),
-        )
-        .ensuring(true)
-      clustersTable.get
-        .putItem(
-          new Item()
-            .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p2"))
-            .withNumber("cluster", 1),
-        )
-        .ensuring(true)
-      clustersTable.get
-        .putItem(
-          new Item()
-            .withPrimaryKey(new PrimaryKey().addComponent("playerId", "p3"))
-            .withNumber("cluster", 1),
-        )
-        .ensuring(true)
+
+//      import com.bootcamp.streamreader.CreateDynamoDbTables._
+      val tablesMap = CreateDynamoDbTables.createDbTables(dbConfig)
+      CreateDynamoDbTables.fillClustersTable(tablesMap("clusters"))
+
       ////// end of DB setup
       val expected = Some(
         PlayerSessionProfile(
@@ -149,7 +125,7 @@ class ProcessStreamWithContainerSpec
       val message2 =
         """
           |    {
-          |    "playerId": "p1",
+          |    "playerId": "p2",
           |    "gameId":"g2",
           |    "tableId":"t1",
           |    "gameType":"Baccarat",
@@ -163,7 +139,7 @@ class ProcessStreamWithContainerSpec
       val message3 =
         """
           |    {
-          |    "playerId": "p1",
+          |    "playerId": "p2",
           |    "gameId":"g3",
           |    "tableId":"t1",
           |    "gameType":"Roulette",
@@ -175,26 +151,32 @@ class ProcessStreamWithContainerSpec
           |""".stripMargin
 
       withRunningKafkaOnFoundPort(config) { implicit config =>
-        publishToKafka("topic", "p1", message1)(
-          config,
-          new StringSerializer,
-          new StringSerializer,
-        )
-        publishToKafka("topic", "p1", message2)(
-          config,
-          new StringSerializer,
-          new StringSerializer,
-        )
-        publishToKafka("topic", "p1", message3)(
-          config,
-          new StringSerializer,
-          new StringSerializer,
-        )
+        Stream
+          .eval(IO {
 
-        program.unsafeRunTimed(10.seconds)
-
-        repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+            publishToKafka("topic", "p1", message1)(
+              config,
+              new StringSerializer,
+              new StringSerializer,
+            )
+            publishToKafka("topic", "p1", message2)(
+              config,
+              new StringSerializer,
+              new StringSerializer,
+            )
+            publishToKafka("topic", "p1", message3)(
+              config,
+              new StringSerializer,
+              new StringSerializer,
+            )
+          })
+          .repeatN(10)
+          .delayBy(1.seconds)
+          .compile
+          .drain
+          .unsafeRunSync()
       }
+
     }
   }
 

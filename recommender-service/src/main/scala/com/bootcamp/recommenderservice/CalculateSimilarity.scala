@@ -23,12 +23,10 @@ object CalculateSimilarity {
     x.map(i => i.toFloat() / xMax)
   }
 
-  object CalculateCosineSimilarity extends Similarity[Long] {
-    override def apply(x: Array[Long], y: Array[Long]): Either[Throwable, Float] =
+  object CalculateCosineSimilarity extends Similarity[Float] {
+    def apply(x: Array[Float], y: Array[Float]): Either[Throwable, Float] =
       if ((x.length == y.length) && (!x.isEmpty)) Right {
-        val xx = normalize(x)
-        val yy = normalize(y)
-        dotProduct[Float](xx, yy) / (magnitude[Float](xx) * magnitude[Float](yy))
+        dotProduct[Float](x, y) / (magnitude[Float](x) * magnitude[Float](y))
       }
       else Left(new Throwable("Array size must be equal and greater than zero"))
   }
