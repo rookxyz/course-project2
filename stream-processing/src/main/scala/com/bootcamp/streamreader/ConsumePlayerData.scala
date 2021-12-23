@@ -60,9 +60,7 @@ class ConsumePlayerData(
         import cats.implicits._
         val updatedProfiles = for {
           validRounds <- playerRounds.map(_.flatMap(_.toOption))
-          _ = println(s"Got valid rounds: $validRounds")
           invalidRounds <- playerRounds.map(_.flatMap(_.swap.toOption))
-          _ = println(s"Got invalid rounds: $invalidRounds")
           temporaryProfiles <- createTemporaryPlayerProfile.apply(validRounds)
           _ <- updatePlayerProfile.apply(temporaryProfiles)
           _ <- invalidRounds.toList.traverse_(e =>
