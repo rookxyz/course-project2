@@ -43,7 +43,6 @@ object UpdatePlayerProfile {
               .toMap
             (state -- playerIdsOutOfSequence) |+| missingPlayerProfilesMap |+| playerProfilesMap
           }
-          currentState <- ref.get
           changedProfiles = updatedState
             .filterKeys(k => playerIds.contains(k))
             .values

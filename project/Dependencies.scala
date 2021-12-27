@@ -64,6 +64,5 @@ object Dependencies {
     "org.scalameta"           %% "munit"                      % munitVersion               % Test,
     "org.typelevel"           %% "munit-cats-effect-3"        % munitCatsEffectVersion     % Test,
     "com.dimafeng"            %% "testcontainers-scala-munit" % testcontainersScalaVersion % Test,
-//    "com.dimafeng"            %% "testcontainers-scala-dynalite" % testcontainersScalaVersion % Test,
   )
 }

@@ -96,16 +96,16 @@ class MySpec extends FunSuite with Matchers {
   }
 
   test("Get all player full activity sparse Vector test") {
-    val gameTypes = List(Baccarat, Roulette, SpinForeverRoulette)
+    val gameTypes = List(NeverLoseBaccarat, UltimateWinPoker, Roulette, Baccarat, Blackjack, SpinForeverRoulette)
     val playerGamePlayRounds: Seq[(PlayerId, Map[GameType, Long])] = Seq(
-      PlayerId("p1") -> Map(Baccarat -> 1, Roulette -> 1),
-      PlayerId("p2") -> Map(Baccarat -> 1),
-      PlayerId("p3") -> Map(Roulette -> 1, SpinForeverRoulette -> 4),
+      PlayerId("p1") -> Map(Blackjack -> 2, UltimateWinPoker -> 5, NeverLoseBaccarat -> 10),
+      PlayerId("p2") -> Map(Baccarat -> 3),
+      PlayerId("p3") -> Map(Roulette -> 2, SpinForeverRoulette -> 1),
     )
     val expected: Map[PlayerId, Vector[Float]] = Map(
-      PlayerId("p1") -> Vector(1f, 1f, 0f),
-      PlayerId("p2") -> Vector(1f, 0f, 0f),
-      PlayerId("p3") -> Vector(0f, 0.25f, 1f),
+      PlayerId("p1") -> Vector(1f, 0.5f, 0f, 0f, 0.2f, 0f),
+      PlayerId("p2") -> Vector(0f, 0f, 0f, 1f, 0f, 0f),
+      PlayerId("p3") -> Vector(0f, 0f, 1f, 0f, 0f, 0.5f),
     )
     GetPlayerRecommendations
       .getPlayerFullActivityMap(

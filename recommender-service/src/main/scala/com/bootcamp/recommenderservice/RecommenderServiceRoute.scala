@@ -13,15 +13,13 @@ import org.http4s.server.Router
 class RecommenderServiceRoute(playerRepository: PlayerRepository) {
   def apply: HttpRoutes[IO] =
     HttpRoutes
-      .of[IO] { case GET -> Root / "recommender" / "playerId" / playerId =>
-        val playerIdObj = PlayerId(playerId)
+      .of[IO] { case GET -> Root / "recommender" / "playerId" / id =>
+        val playerId = PlayerId(id)
         (for {
-          playerCluster <- playerRepository.readClusterByPlayerId(playerIdObj)
-          playersWithCluster <- playerRepository.readPlayersByCluster(playerCluster.get)
-          _ = IO.raiseWhen(!playersWithCluster.exists(p => p.playerId == playerIdObj))(
-            new Throwable("Player has no activity"),
-          )
-          playerUnseenGameTypesSorted = GetPlayerRecommendations.apply(playerIdObj, playersWithCluster)
+          playerProfile <- playerRepository.readByPlayerId(playerId)
+          playerCluster <- IO(playerProfile.get.playerCluster).handleErrorWith(e => throw e)
+          playersWithCluster <- playerRepository.readPlayersByCluster(playerCluster)
+          playerUnseenGameTypesSorted = GetPlayerRecommendations.apply(playerId, playersWithCluster)
           responseJson: Json = playerUnseenGameTypesSorted.asJson
           response <- if (playerUnseenGameTypesSorted.nonEmpty) Ok(responseJson.noSpaces) else Ok("null")
         } yield response).handleErrorWith(_ => NotFound())

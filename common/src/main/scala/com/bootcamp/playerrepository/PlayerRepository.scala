@@ -156,10 +156,9 @@ object PlayerRepository {
               ),
             )
             profileString <- unCompressR(response.getBinary("gzipprofile"))
-//            profileString = Try(unCompress(response.getBinary("gzipprofile"))).toOption
             profile = decode[PlayerSessionProfile](profileString).toOption
           } yield profile).use(IO.pure).handleErrorWith { e =>
-            log.error(e)(s"Could not get player $playerId from database") *> IO.pure(none[PlayerSessionProfile])
+            log.info(s"Could not get player $playerId from database") *> IO.pure(none[PlayerSessionProfile])
           }
 
         def readByPlayerIds( // TODO use batch get item

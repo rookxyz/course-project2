@@ -1,12 +1,12 @@
 package com.bootcamp.integration
 
-import cats.effect.{FiberIO, IO}
+import cats.effect.IO
 import cats.effect.implicits._
 import cats.implicits._
 import cats.effect.kernel.{Outcome, Ref, Resource}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey}
+import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
 import com.bootcamp.domain.GameType._
 import com.bootcamp.domain._
@@ -15,7 +15,6 @@ import com.bootcamp.recommenderservice.RunRecommenderHttpServer
 import com.bootcamp.streamreader.{
   ConsumePlayerData,
   CreateDynamoDbTables,
-  CreateTemporaryPlayerProfile,
   RunStreamProcessingServer,
   UpdatePlayerProfile,
 }
@@ -23,21 +22,21 @@ import com.dimafeng.testcontainers.GenericContainer
 import com.dimafeng.testcontainers.munit.TestContainerForEach
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.serialization.StringSerializer
-import org.scalatest.concurrent.{Eventually, IntegrationPatience}
-import org.scalatest.matchers.should.Matchers
-import org.typelevel.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
 
 import java.time.Instant
 import scala.concurrent.duration._
 import scala.math.BigDecimal.RoundingMode
+import ch.qos.logback.classic.{Level, Logger}
+import org.slf4j.LoggerFactory
 
-class E2EDemoTestSpec
-    extends munit.CatsEffectSuite
-    with Matchers
-    with EmbeddedKafka
-    with Eventually
-    with IntegrationPatience
-    with TestContainerForEach {
+class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with TestContainerForEach {
+  LoggerFactory
+    .getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
+    .asInstanceOf[ch.qos.logback.classic.Logger]
+    .setLevel(Level.ERROR)
+  val log = LoggerFactory
+    .getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
 
   class DynamoContainer(port: Int, underlying: GenericContainer) extends GenericContainer(underlying) {
     def getPort: String = s"${mappedPort(port)}"
@@ -66,7 +65,7 @@ class E2EDemoTestSpec
       dynamoDbContainer.start()
       val x = containerDef.start()
       println(s"Container started running on port: ${x.getPort}")
-      val kafkaConfig = KafkaConfig("localhost", Port(16001), "bootcamp-topic", "group1", "client1", 25, 2.seconds)
+      val kafkaConfig = KafkaConfig("localhost", Port(16001), "bootcamp-topic", "group1", "client1", 25, 500.millis)
       val dbConfig = DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3")
       val config: EmbeddedKafkaConfig = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,
@@ -90,14 +89,18 @@ class E2EDemoTestSpec
           val gameTypes: Vector[String] =
             Vector("Blackjack", "Roulette", "Baccarat", "UltimateWinPoker", "SpinForeverRoulette", "NeverLoseBaccarat")
           val sign: Vector[Int] = Vector(-1, 0, 1)
-          val seqNumMap = scala.collection.mutable.Map.empty[String, Long]
+          val maxGameTypes: Int = 3
+          val seqNumMap = scala.collection.mutable.Map.empty[String, (Long, Set[String])]
           (0 to messagesN).map { i =>
             IO.sleep(0.millis) *>
               IO {
                 val r = scala.util.Random
                 val playerId: String = s"p${r.nextInt(playersN)}"
                 val gameId: String = s"g$i"
-                val gameType: String = getRandomElement(gameTypes)
+                val playerGameTypes: Set[String] = seqNumMap.getOrElse(playerId, (0, Set.empty[String]))._2
+                val gameType: String =
+                  if (playerGameTypes.size >= maxGameTypes) playerGameTypes.toList(r.nextInt(maxGameTypes))
+                  else getRandomElement(gameTypes)
                 val wager: BigDecimal = BigDecimal(r.nextInt(100)).setScale(2)
                 val payout: BigDecimal =
                   wager.+(BigDecimal(getRandomElement(sign) * 0.1f).*(wager)).setScale(2, RoundingMode.UP)
@@ -113,12 +116,11 @@ class E2EDemoTestSpec
                       |    "stakeEur":$wager,
                       |    "payoutEur":$payout,
                       |    "gameEndedTime":"${Instant.now}",
-                      |    "seqNum": ${seqNumMap.getOrElseUpdate(playerId, 0)}
+                      |    "seqNum": ${seqNumMap.getOrElseUpdate(playerId, (0, Set(gameType)))._1}
                       |    }
                       |""".stripMargin
-
-                //                      |    "playerId": "$playerId",
-                seqNumMap(playerId) = seqNumMap(playerId) + 1
+                if (i % 1000 == 0) println(s"Published $i messages! $message")
+                seqNumMap(playerId) = (seqNumMap(playerId)._1 + 1, seqNumMap(playerId)._2 + gameType)
                 publishMessageToKafka(playerId, message)
               }
           }.toList
@@ -130,18 +132,16 @@ class E2EDemoTestSpec
             new StringSerializer,
             new StringSerializer,
           )
-          println(s"Published message for player $partition to topic ${kafkaConfig.topic}$message")
+          log.info(s"Published message for player $partition to topic ${kafkaConfig.topic}$message")
         }
-        val players: Int = 100
-        val clusters: Int = 5
-        val messages: Int = 50000
+        val players: Int = 10
+        val clusters: Int = 2
+        val messages: Int = 5000
         CreateDynamoDbTables.fillClustersTable(tablesMap("clusters"), players, clusters)
         val program = for {
-          http <- IO.race(RunRecommenderHttpServer.run(Some(dbConfig)), IO.sleep(4.minutes)).start
+          _ <- IO.race(RunRecommenderHttpServer.run(Some(dbConfig)), IO.sleep(4.minutes)).start
           consumer <- RunStreamProcessingServer.run(Some(dbConfig), Some(kafkaConfig)).start
           _ <- publishGameRoundsToKafka(messages, players).traverse_(i => i)
-          _ <- consumer.join
-//          _ <- http.join
         } yield ()
 
         program.unsafeRunSync()

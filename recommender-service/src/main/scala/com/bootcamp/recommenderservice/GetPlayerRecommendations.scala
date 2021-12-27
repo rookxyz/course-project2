@@ -6,14 +6,12 @@ import com.bootcamp.recommenderservice.CalculateSimilarity.{CalculateCosineSimil
 object GetPlayerRecommendations {
   val getPlayerFullActivityMap: (List[GameType], Seq[(PlayerId, Map[GameType, Long])]) => Map[PlayerId, Vector[
     Float,
-  ]] = (x, y) =>
-    y.toMap
-      .mapValues(i =>
-        x
-          .map(gameType => (gameType -> i.getOrElse(gameType, 0L)))
-          .toMap
-          .values
-          .toVector,
+  ]] = (gameTypes, playerActivity) =>
+    playerActivity.toMap
+      .mapValues(gamePlay =>
+        gameTypes.foldLeft(Vector.empty[Long]) { (acc, cur) =>
+          acc :+ gamePlay.getOrElse(cur, 0L)
+        },
       )
       .mapValues(normalize(_))
 
@@ -74,6 +72,17 @@ object GetPlayerRecommendations {
     val topSimilar: Map[PlayerId, Float] = getTopSimilarPlayers(thisPlayerFullActivity, otherPlayersFullActivity, 50)
 
     val topSimilarPlayersActivity: Map[PlayerId, Vector[Float]] = otherPlayersFullActivity.filterKeys(topSimilar.keySet)
+
+    println(s"Player actual played: ${playerGamePlayRounds.toList.filter(_._1 == playerId).map(_._2).toString()}")
+    println(s"Player played: ${allGameTypes zip thisPlayerFullActivity}")
+    println(s"Averages: ${getAveragedGamePlay(allGameTypes)(topSimilarPlayersActivity)}")
+    println()
+    println(
+      s"Recommending: ${(getAveragedGamePlay(allGameTypes) andThen getPlayerUnseenGameTypesSorted(thisPlayerFullActivity))(
+        topSimilarPlayersActivity,
+      )}",
+    )
+    println()
 
     (getAveragedGamePlay(allGameTypes) andThen getPlayerUnseenGameTypesSorted(thisPlayerFullActivity))(
       topSimilarPlayersActivity,
