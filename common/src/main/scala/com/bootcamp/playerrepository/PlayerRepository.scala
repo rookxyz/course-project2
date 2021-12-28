@@ -24,6 +24,8 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 import CompressString._
 
+import java.time.{Instant, ZoneId}
+
 trait PlayerRepository {
   def store(data: Seq[PlayerSessionProfile]): IO[Unit]
 
@@ -108,10 +110,13 @@ object PlayerRepository {
         val clustersTable: Table = db.getTable(config.clusterTableName)
 
         def store(data: Seq[PlayerSessionProfile]): IO[Unit] = {
+          def getTTL =
+            Instant.now().atZone(ZoneId.of("UTC")).plusSeconds(config.timeToLiveSeconds.toSeconds).toEpochSecond
           def createDbInsertItem(profile: PlayerSessionProfile): Item = new Item()
             .withPrimaryKey(new PrimaryKey().addComponent("playerId", profile.playerId.id))
             .withNumber("cluster", profile.playerCluster.value)
             .withBinary("gzipprofile", compress(profile.asJson.noSpaces))
+            .withNumber("expireAt", getTTL)
 
           def storeWithRetry(outcome: IO[BatchWriteItemOutcome], maxRetries: Int = 5): IO[BatchWriteItemOutcome] =
             outcome

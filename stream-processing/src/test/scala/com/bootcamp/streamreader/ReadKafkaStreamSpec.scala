@@ -21,9 +21,14 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import java.time.Instant
 import scala.concurrent.duration._
 
-class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with Eventually with IntegrationPatience {
+class ReadKafkaStreamSpec
+    extends munit.CatsEffectSuite
+    with Matchers
+    with EmbeddedKafka
+    with Eventually
+    with IntegrationPatience {
 
-  test("Runtime exception on invalid message test") {
+  test("Empty on invalid message test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
     val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
@@ -31,14 +36,11 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     )
     val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
     val program = for {
-//      logger <- Slf4jLogger.getLogger[IO]
-      _ <- logger.info(s"First log!")
-      - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+      _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = ConsumePlayerData.of(kafkaConfig, state, service)
         consumer.flatMap(_.stream.take(1).compile.toList)
-//        consumer.stream.take(1).compile.toList // read one record and exit
       }
     } yield ()
     withRunningKafkaOnFoundPort(config) { implicit config =>
@@ -48,10 +50,10 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         new StringSerializer,
       )
 
-      // TODO how to check for log - read file or can capture?
-      an[RuntimeException] should be thrownBy program
-        .unsafeRunTimed(10.seconds)
-        .get
+      program.unsafeRunAndForget()
+      eventually {
+        repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe empty
+      }
     }
   }
   test("Encode/Decode PlayerGameRound ") {
@@ -240,7 +242,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     )
     val program = for {
       logger <- Slf4jLogger.create[IO]
-      - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
+      _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
@@ -322,28 +324,28 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         new StringSerializer,
       )
 
-      program.unsafeRunTimed(10.seconds)
+      program.unsafeRunTimed(15.seconds)
 
       repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
     }
   }
   test("Aggregates multiple player game play test") {
     val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
-    val repository = PlayerRepository.inMem.unsafeRunSync()
+    val repository = PlayerRepository().unsafeRunSync()
     val config = EmbeddedKafkaConfig(
       kafkaPort = kafkaConfig.port.value,
     )
-    val ref = Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty).unsafeRunSync()
 
     val program = for {
       logger <- Slf4jLogger.create[IO]
-      - <- IO {
+      _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(3).compile.toList // read one record and exit
       }
     } yield ()
+
     val message1 =
       """
         |    {
@@ -403,9 +405,6 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         new StringSerializer,
       )
 
-      program.unsafeRunAndForget()
-
-      // TODO how to get the output from stream processing to compare to fixed expected value?
       val expected =
         Set(
           PlayerSessionProfile(
@@ -454,15 +453,13 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
             ),
           ),
         )
-
+      program.unsafeRunTimed(20.seconds)
       eventually {
-        println(ref.get.unsafeRunSync())
+        repository
+          .readByPlayerIds(Seq(PlayerId("p1"), PlayerId("p2"), PlayerId("p3")))
+          .unsafeRunSync()
+          .toSet shouldBe expected
       }
-      eventually {
-//        println("ref.get" + ref.get.unsafeRunSync())
-        repository.storage.values.toSet shouldBe expected
-      }
-    // repository.storage should contain allElementsOf expected
     }
   }
 
@@ -508,7 +505,7 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
     val program = for {
       logger <- Slf4jLogger.create[IO]
 
-      - <- rref flatMap { ref =>
+      _ <- rref flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
@@ -589,9 +586,10 @@ class MySpec extends munit.CatsEffectSuite with Matchers with EmbeddedKafka with
         new StringSerializer,
       )
 
-      program.unsafeRunTimed(10.seconds)
-
-      repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+      program.unsafeRunAndForget()
+      eventually {
+        repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+      }
 
     }
   }

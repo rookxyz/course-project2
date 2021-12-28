@@ -1,5 +1,6 @@
 package com.bootcamp.streamreader
 
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey, Table}
 import com.amazonaws.services.dynamodbv2.model.{
   AttributeDefinition,
@@ -9,14 +10,27 @@ import com.amazonaws.services.dynamodbv2.model.{
   Projection,
   ProvisionedThroughput,
   ScalarAttributeType,
+  TimeToLiveSpecification,
+  UpdateTimeToLiveRequest,
+  UpdateTimeToLiveResult,
 }
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClientBuilder}
 import com.bootcamp.config.DbConfig
 
 object CreateDynamoDbTables {
   def createDbTables(config: DbConfig)(implicit db: DynamoDB): Map[String, Table] = {
+    val dbEndpoint = new EndpointConfiguration(config.endpoint, "eu-central-1")
+    val dbAsync = AmazonDynamoDBAsyncClientBuilder.standard().withEndpointConfiguration(dbEndpoint).build()
+
     val attributeCluster = new AttributeDefinition("cluster", ScalarAttributeType.N)
     val attributePlayerId = new AttributeDefinition("playerId", ScalarAttributeType.S)
+//    val attributeExpireAt = new AttributeDefinition("expireAt", ScalarAttributeType.N)
     //    val attributeProfile = new AttributeDefinition("gzipprofile", ScalarAttributeType.B)
+
+    val ttlSpec = new TimeToLiveSpecification().withAttributeName("expireAt").withEnabled(true)
+
+    val ttlReq =
+      new UpdateTimeToLiveRequest().withTableName(config.playerProfileTableName).withTimeToLiveSpecification(ttlSpec)
 
     val createProfilesTableReq = new CreateTableRequest()
       .withTableName(config.playerProfileTableName)
@@ -47,6 +61,8 @@ object CreateDynamoDbTables {
 
     t2.waitForActive()
     t3.waitForActive()
+
+    val updt2: UpdateTimeToLiveResult = dbAsync.updateTimeToLive(ttlReq)
 
     Map("profiles" -> t2, "clusters" -> t3)
 

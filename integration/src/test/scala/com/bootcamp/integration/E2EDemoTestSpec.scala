@@ -65,8 +65,9 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
       dynamoDbContainer.start()
       val x = containerDef.start()
       println(s"Container started running on port: ${x.getPort}")
-      val kafkaConfig = KafkaConfig("localhost", Port(16001), "bootcamp-topic", "group1", "client1", 25, 500.millis)
-      val dbConfig = DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3")
+      val kafkaConfig = KafkaConfig("localhost", Port(16001), "bootcamp-topic", "group1", "client1", 25, 2.seconds)
+      val dbConfig =
+        DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3", 10.seconds)
       val config: EmbeddedKafkaConfig = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,
       )
@@ -134,13 +135,13 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
           )
           log.info(s"Published message for player $partition to topic ${kafkaConfig.topic}$message")
         }
-        val players: Int = 10
-        val clusters: Int = 2
-        val messages: Int = 5000
+        val players: Int = 20
+        val clusters: Int = 3
+        val messages: Int = 1500
         CreateDynamoDbTables.fillClustersTable(tablesMap("clusters"), players, clusters)
         val program = for {
           _ <- IO.race(RunRecommenderHttpServer.run(Some(dbConfig)), IO.sleep(4.minutes)).start
-          consumer <- RunStreamProcessingServer.run(Some(dbConfig), Some(kafkaConfig)).start
+          _ <- RunStreamProcessingServer.run(Some(dbConfig), Some(kafkaConfig)).start
           _ <- publishGameRoundsToKafka(messages, players).traverse_(i => i)
         } yield ()
 

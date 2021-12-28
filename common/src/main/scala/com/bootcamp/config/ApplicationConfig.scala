@@ -25,6 +25,7 @@ final case class DbConfig(
   secretAccessKey: String, // TODO need to read this from file system later
   playerProfileTableName: String,
   clusterTableName: String,
+  timeToLiveSeconds: FiniteDuration,
 )
 trait ApplicationConfig
 
