@@ -24,8 +24,12 @@ object RunStreamProcessingServer {
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
         val stream: IO[ConsumePlayerData] = ConsumePlayerData.of(kafkaConfig, state, service)
-
-        stream.flatMap(consumer => consumer.start.as(ExitCode.Success))
+        val flushInactiveProfiles = FlushInactiveProfiles.of(ref, dbConfig)
+        for {
+          gameConsumer <- stream
+          flushProfiles <- flushInactiveProfiles
+          result <- gameConsumer.stream.concurrently(flushProfiles.apply).compile.drain.as(ExitCode.Success)
+        } yield result
       }
     } yield ExitCode.Success
 }

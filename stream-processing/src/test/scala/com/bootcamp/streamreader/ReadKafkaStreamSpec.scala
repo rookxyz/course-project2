@@ -139,6 +139,7 @@ class ReadKafkaStreamSpec
       Cluster(1),
       SeqNum(0L),
       SeqNum(1L),
+      0L,
       PlayerGamePlay(
         Map(
           Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22)),
@@ -182,6 +183,7 @@ class ReadKafkaStreamSpec
         Cluster(1),
         SeqNum(0L),
         SeqNum(1L),
+        0L,
         PlayerGamePlay(
           Map(Baccarat -> GameTypeActivity(1, Money(111.11), Money(222.22))),
         ),
@@ -255,6 +257,7 @@ class ReadKafkaStreamSpec
         Cluster(1),
         SeqNum(0),
         SeqNum(3),
+        0L,
         PlayerGamePlay(
           Map(
             Baccarat -> GameTypeActivity(2, Money(222.22), Money(444.44)),
@@ -411,6 +414,7 @@ class ReadKafkaStreamSpec
             Cluster(1),
             SeqNum(0L),
             SeqNum(1L),
+            0L,
             PlayerGamePlay(
               Map(
                 Baccarat -> GameTypeActivity(
@@ -426,6 +430,7 @@ class ReadKafkaStreamSpec
             Cluster(1),
             SeqNum(0L),
             SeqNum(1L),
+            0L,
             PlayerGamePlay(
               Map(
                 Baccarat -> GameTypeActivity(
@@ -441,6 +446,7 @@ class ReadKafkaStreamSpec
             Cluster(1),
             SeqNum(0L),
             SeqNum(1L),
+            0L,
             PlayerGamePlay(
               Map(
                 Roulette -> GameTypeActivity(
@@ -473,6 +479,7 @@ class ReadKafkaStreamSpec
       Cluster(1),
       SeqNum(0L),
       SeqNum(2L),
+      0L,
       PlayerGamePlay(
         Map(
           Baccarat -> GameTypeActivity(
@@ -488,6 +495,7 @@ class ReadKafkaStreamSpec
       Cluster(1),
       SeqNum(0L),
       SeqNum(1L),
+      0L,
       PlayerGamePlay(
         Map(
           Baccarat -> GameTypeActivity(
@@ -517,6 +525,7 @@ class ReadKafkaStreamSpec
         Cluster(1),
         SeqNum(0),
         SeqNum(5),
+        0L,
         PlayerGamePlay(
           Map(
             Baccarat -> GameTypeActivity(4, Money(4.0), Money(-4.0)),

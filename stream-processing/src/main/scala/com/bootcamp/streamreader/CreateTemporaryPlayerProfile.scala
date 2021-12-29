@@ -12,6 +12,8 @@ import com.bootcamp.domain.{
 }
 import com.bootcamp.domain._
 
+import java.time.{Instant, ZoneId}
+
 trait CreateTemporaryPlayerProfile {
   def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Seq[PlayerSessionProfile]]
 }
@@ -41,6 +43,7 @@ object CreateTemporaryPlayerProfile {
               Cluster.Default,
               minSeqNum,
               maxSeqNum,
+              Instant.now().atZone(ZoneId.of("UTC")).toEpochSecond,
               PlayerGamePlay(gamePlay),
             )
           }

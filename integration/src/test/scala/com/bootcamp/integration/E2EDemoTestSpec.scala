@@ -60,14 +60,14 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
       8000,
     )
 
-  test("Aggregates players game play test with test container") {
+  test("End to End integration test for demo with test container") {
     withContainers { dynamoDbContainer =>
       dynamoDbContainer.start()
       val x = containerDef.start()
       println(s"Container started running on port: ${x.getPort}")
       val kafkaConfig = KafkaConfig("localhost", Port(16001), "bootcamp-topic", "group1", "client1", 25, 2.seconds)
       val dbConfig =
-        DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3", 10.seconds)
+        DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "secret1", "secret2", "profiles3", "clusters3", 10.seconds)
       val config: EmbeddedKafkaConfig = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,
       )
@@ -93,7 +93,7 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
           val maxGameTypes: Int = 2
           val seqNumMap = scala.collection.mutable.Map.empty[String, (Long, Set[String])]
           (0 to messagesN).map { i =>
-            IO.sleep(200.millis) *>
+            IO.sleep(500.millis) *>
               IO {
                 val r = scala.util.Random
                 val playerId: String = s"p${r.nextInt(playersN)}"

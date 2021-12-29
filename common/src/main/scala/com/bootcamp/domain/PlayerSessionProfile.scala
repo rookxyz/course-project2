@@ -92,6 +92,7 @@ final case class PlayerSessionProfile(
   playerCluster: Cluster,
   firstSeqNum: SeqNum,
   lastSeqNum: SeqNum,
+  lastUpdate: Long,
   gamePlay: PlayerGamePlay,
 )
 
@@ -107,6 +108,7 @@ object PlayerSessionProfile {
           x.playerCluster,
           x.firstSeqNum,
           y.lastSeqNum,
+          y.lastUpdate,
           x.gamePlay |+| y.gamePlay,
         )
     }
