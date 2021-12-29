@@ -90,10 +90,10 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
           val gameTypes: Vector[String] =
             Vector("Blackjack", "Roulette", "Baccarat", "UltimateWinPoker", "SpinForeverRoulette", "NeverLoseBaccarat")
           val sign: Vector[Int] = Vector(-1, 0, 1)
-          val maxGameTypes: Int = 3
+          val maxGameTypes: Int = 2
           val seqNumMap = scala.collection.mutable.Map.empty[String, (Long, Set[String])]
           (0 to messagesN).map { i =>
-            IO.sleep(0.millis) *>
+            IO.sleep(200.millis) *>
               IO {
                 val r = scala.util.Random
                 val playerId: String = s"p${r.nextInt(playersN)}"
@@ -137,7 +137,7 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
         }
         val players: Int = 20
         val clusters: Int = 3
-        val messages: Int = 1500
+        val messages: Int = 5000
         CreateDynamoDbTables.fillClustersTable(tablesMap("clusters"), players, clusters)
         val program = for {
           _ <- IO.race(RunRecommenderHttpServer.run(Some(dbConfig)), IO.sleep(4.minutes)).start
