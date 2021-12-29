@@ -23,7 +23,8 @@ object RunStreamProcessingServer {
       _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
         val service = CreateTemporaryPlayerProfile.apply
-        val stream = ConsumePlayerData.of(kafkaConfig, state, service)
+        val stream: IO[ConsumePlayerData] = ConsumePlayerData.of(kafkaConfig, state, service)
+
         stream.flatMap(consumer => consumer.start.as(ExitCode.Success))
       }
     } yield ExitCode.Success

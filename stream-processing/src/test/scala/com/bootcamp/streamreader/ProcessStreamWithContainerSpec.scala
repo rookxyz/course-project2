@@ -5,7 +5,6 @@ import cats.effect.kernel.Ref
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, PrimaryKey}
-import com.bootcamp.config.DbConfig
 import com.bootcamp.domain._
 import com.bootcamp.playerrepository.PlayerRepository
 import com.bootcamp.domain._
@@ -13,17 +12,10 @@ import com.bootcamp.domain.GameType._
 import com.bootcamp.config.{DbConfig, KafkaConfig, Port}
 import com.dimafeng.testcontainers.{ContainerDef, GenericContainer}
 import com.dimafeng.testcontainers.munit.TestContainerForEach
-import io.circe
-import io.circe.parser.decode
-import io.circe.syntax.EncoderOps
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.time.Instant
@@ -194,7 +186,7 @@ class ProcessStreamWithContainerSpec
 
         program.unsafeRunTimed(10.seconds)
 
-        repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
+        assertIO(repository.readByPlayerId(PlayerId("p1")), expected)
       }
     }
   }

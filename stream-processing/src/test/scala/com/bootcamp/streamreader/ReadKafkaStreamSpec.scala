@@ -11,7 +11,6 @@ import io.circe.parser.decode
 import io.circe.syntax.EncoderOps
 import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}

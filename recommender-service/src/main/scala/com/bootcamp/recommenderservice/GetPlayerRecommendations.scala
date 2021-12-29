@@ -74,16 +74,16 @@ object GetPlayerRecommendations {
     val topSimilarPlayersActivity: Map[PlayerId, Vector[Float]] = otherPlayersFullActivity.filterKeys(topSimilar.keySet)
 
     // The below prinlns are only for demo purposes
-//    println(s"Player actual played: ${playerGamePlayRounds.toList.filter(_._1 == playerId).map(_._2).toString()}")
-//    println(s"Player played: ${allGameTypes zip thisPlayerFullActivity}")
-//    println(s"Averages: ${getAveragedGamePlay(allGameTypes)(topSimilarPlayersActivity)}")
-//    println()
-//    println(
-//      s"Recommending: ${(getAveragedGamePlay(allGameTypes) andThen getPlayerUnseenGameTypesSorted(thisPlayerFullActivity))(
-//        topSimilarPlayersActivity,
-//      )}",
-//    )
-//    println()
+    println(s"Player actual played: ${playerGamePlayRounds.toList.filter(_._1 == playerId).map(_._2).toString()}")
+    println(s"Player played: ${allGameTypes zip thisPlayerFullActivity}")
+    println(s"Averages: ${getAveragedGamePlay(allGameTypes)(topSimilarPlayersActivity)}")
+    println()
+    println(
+      s"Recommending: ${(getAveragedGamePlay(allGameTypes) andThen getPlayerUnseenGameTypesSorted(thisPlayerFullActivity))(
+        topSimilarPlayersActivity,
+      )}",
+    )
+    println()
 
     (getAveragedGamePlay(allGameTypes) andThen getPlayerUnseenGameTypesSorted(thisPlayerFullActivity))(
       topSimilarPlayersActivity,
