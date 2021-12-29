@@ -80,6 +80,7 @@ object PlayerRepository {
             playerCluster.getOrElse(Cluster.Default),
             playerProfile.map(_.firstSeqNum).getOrElse(SeqNumber.Default),
             playerProfile.map(_.lastSeqNum).getOrElse(SeqNumber.Default),
+            playerProfile.map(_.lastUpdate).getOrElse(0L),
             playerProfile.map(_.gamePlay).getOrElse(PlayerGamePlay.Empty),
           )
         }
@@ -178,6 +179,7 @@ object PlayerRepository {
               playerCluster.getOrElse(Cluster.Default),
               playerProfile.map(_.firstSeqNum).getOrElse(SeqNumber.Default),
               playerProfile.map(_.lastSeqNum).getOrElse(SeqNumber.Default),
+              playerProfile.map(_.lastUpdate).getOrElse(0L),
               playerProfile.map(_.gamePlay).getOrElse(PlayerGamePlay.Empty),
             )
           }

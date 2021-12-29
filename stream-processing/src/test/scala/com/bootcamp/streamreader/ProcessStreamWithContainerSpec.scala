@@ -116,6 +116,7 @@ class ProcessStreamWithContainerSpec
           Cluster(1),
           SeqNum(0),
           SeqNum(3),
+          0L,
           PlayerGamePlay(
             Map(
               Baccarat -> GameTypeActivity(2, Money(222.22), Money(444.44)),
