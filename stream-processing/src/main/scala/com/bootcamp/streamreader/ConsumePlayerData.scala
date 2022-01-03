@@ -8,8 +8,6 @@ import io.circe.parser.decode
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-import java.util.concurrent.atomic.AtomicLong
-
 object ConsumePlayerData {
   def of(
     kafkaConfig: KafkaConfig,
@@ -38,8 +36,6 @@ class ConsumePlayerData(
       .withBootstrapServers(s"${kafkaConfig.host}:${port.value}")
       .withGroupId(kafkaConfig.groupId)
       .withClientId(kafkaConfig.clientId)
-
-  val counter = new AtomicLong(0L)
 
   val stream =
     KafkaConsumer
