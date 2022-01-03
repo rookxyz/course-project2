@@ -1,6 +1,7 @@
 package com.bootcamp.streamreader
 
 import cats.effect.IO
+import cats.implicits.catsSyntaxOptionId
 import com.bootcamp.domain.{
   Cluster,
   GameType,
@@ -10,7 +11,6 @@ import com.bootcamp.domain.{
   PlayerId,
   PlayerSessionProfile,
 }
-import com.bootcamp.domain._
 
 import java.time.{Instant, ZoneId}
 
@@ -19,13 +19,19 @@ trait CreateTemporaryPlayerProfile {
 }
 
 object CreateTemporaryPlayerProfile {
-  def apply: CreateTemporaryPlayerProfile =
+  def apply(time: IO[Option[Instant]]): CreateTemporaryPlayerProfile =
     new CreateTemporaryPlayerProfile {
-      def apply(playerRounds: Seq[(PlayerId, PlayerGameRound)]): IO[Seq[PlayerSessionProfile]] =
-        IO.pure(createPlayerSessionProfile(playerRounds))
+      def apply(
+        playerRounds: Seq[(PlayerId, PlayerGameRound)],
+      ): IO[Seq[PlayerSessionProfile]] =
+        for {
+          nowTime <- time
+          now <- IO.realTimeInstant.map(t => nowTime.getOrElse(t))
+        } yield createPlayerSessionProfile(playerRounds, now)
 
       private def createPlayerSessionProfile(
         playerRounds: Seq[(PlayerId, PlayerGameRound)],
+        now: Instant,
       ): Seq[PlayerSessionProfile] =
         playerRounds
           .groupBy(_._1)
@@ -43,7 +49,7 @@ object CreateTemporaryPlayerProfile {
               Cluster.Default,
               minSeqNum,
               maxSeqNum,
-              Instant.now().atZone(ZoneId.of("UTC")).toEpochSecond,
+              now.atZone(ZoneId.of("UTC")).toEpochSecond,
               PlayerGamePlay(gamePlay),
             )
           }

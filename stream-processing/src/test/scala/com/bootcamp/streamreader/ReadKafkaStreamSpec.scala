@@ -37,7 +37,7 @@ class ReadKafkaStreamSpec
     val program = for {
       _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = ConsumePlayerData.of(kafkaConfig, state, service)
         consumer.flatMap(_.stream.take(1).compile.toList)
       }
@@ -103,7 +103,7 @@ class ReadKafkaStreamSpec
       logger <- Slf4jLogger.create[IO]
       li <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
@@ -129,7 +129,7 @@ class ReadKafkaStreamSpec
         new StringSerializer,
       )
 
-      program.unsafeRunTimed(10.seconds).get.length shouldBe 1
+      program.unsafeRunTimed(20.seconds).get.length shouldBe 1
     }
   }
 
@@ -154,6 +154,7 @@ class ReadKafkaStreamSpec
         |  "playerCluster" : 1,
         |  "firstSeqNum" : 0,
         |  "lastSeqNum" : 1,
+        |  "lastUpdate" : 0,
         |  "gamePlay" : {
         |    "gamePlay" : {
         |      "\"Baccarat\"" : {
@@ -202,7 +203,7 @@ class ReadKafkaStreamSpec
       logger <- Slf4jLogger.create[IO]
       - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
@@ -228,7 +229,7 @@ class ReadKafkaStreamSpec
         new StringSerializer,
       )
 
-      program.unsafeRunTimed(10.seconds)
+      program.unsafeRunTimed(20.seconds)
       repository
         .readByPlayerId(PlayerId("p1"))
         .unsafeRunSync() shouldBe expected
@@ -245,7 +246,7 @@ class ReadKafkaStreamSpec
       logger <- Slf4jLogger.create[IO]
       _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(1).compile.toList // read one record and exit
       }
@@ -326,7 +327,7 @@ class ReadKafkaStreamSpec
         new StringSerializer,
       )
 
-      program.unsafeRunTimed(15.seconds)
+      program.unsafeRunTimed(20.seconds)
 
       repository.readByPlayerId(PlayerId("p1")).unsafeRunSync() shouldBe expected
     }
@@ -342,7 +343,7 @@ class ReadKafkaStreamSpec
       logger <- Slf4jLogger.create[IO]
       _ <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(3).compile.toList // read one record and exit
       }
@@ -514,7 +515,7 @@ class ReadKafkaStreamSpec
 
       _ <- rref flatMap { ref =>
         val state = UpdatePlayerProfile(ref, repository)
-        val service = CreateTemporaryPlayerProfile.apply
+        val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
         val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
         consumer.stream.take(3).compile.toList // read one record and exit
       }

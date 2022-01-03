@@ -63,7 +63,7 @@ class ProcessStreamWithContainerSpec
       println(s"Container started running on port: ${x.getPort}")
       val kafkaConfig = KafkaConfig("localhost", Port(16001), "topic", "group1", "client1", 25, 2.seconds)
       val dbConfig =
-        DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3", 10.seconds)
+        DbConfig(s"http://localhost:${x.getPort}", 5, 1000, "aaa", "bbbb", "profiles3", "clusters3", 300.seconds)
       val repository = PlayerRepository(dbConfig).unsafeRunSync()
       val config = EmbeddedKafkaConfig(
         kafkaPort = kafkaConfig.port.value,
@@ -72,7 +72,7 @@ class ProcessStreamWithContainerSpec
         logger <- Slf4jLogger.create[IO]
         - <- Ref.of[IO, Map[PlayerId, PlayerSessionProfile]](Map.empty) flatMap { ref =>
           val state = UpdatePlayerProfile(ref, repository)
-          val service = CreateTemporaryPlayerProfile.apply
+          val service = CreateTemporaryPlayerProfile.apply(IO.pure(Some(Instant.ofEpochMilli(0L))))
           val consumer = new ConsumePlayerData(kafkaConfig, state, service, logger)
           consumer.stream.take(3).compile.toList // read one record and exit
         }
@@ -185,7 +185,7 @@ class ProcessStreamWithContainerSpec
           new StringSerializer,
         )
 
-        program.unsafeRunTimed(10.seconds)
+        program.unsafeRunTimed(20.seconds)
 
         assertIO(repository.readByPlayerId(PlayerId("p1")), expected)
       }

@@ -15,14 +15,19 @@ object FlushInactiveProfiles {
     IO(new FlushInactiveProfiles(ref, config))
 }
 
-class FlushInactiveProfiles(ref: Ref[IO, Map[PlayerId, PlayerSessionProfile]], config: DbConfig) {
+class FlushInactiveProfiles(
+  ref: Ref[IO, Map[PlayerId, PlayerSessionProfile]],
+  config: DbConfig,
+  now: IO[Instant] = IO.realTimeInstant,
+) {
   def apply: Stream[IO, Unit] =
     Stream
       .awakeEvery[IO](config.timeToLiveSeconds)
       .evalMap(_ =>
         for {
           currentState <- ref.get
-          maxAge = Instant.now().atZone(ZoneId.of("UTC")).minusSeconds(config.timeToLiveSeconds.toSeconds).toEpochSecond
+          now <- now
+          maxAge = now.atZone(ZoneId.of("UTC")).minusSeconds(config.timeToLiveSeconds.toSeconds).toEpochSecond
           inactiveProfiles = currentState.filter(i => i._2.lastUpdate < maxAge).keySet
           _ <- ref.updateAndGet { state =>
             state -- inactiveProfiles

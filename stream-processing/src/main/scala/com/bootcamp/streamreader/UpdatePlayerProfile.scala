@@ -30,7 +30,6 @@ object UpdatePlayerProfile {
               if !lastSeqNum.isNext(firstSeqNum)
             } yield (profile.playerId)
           }
-          // TODO player list for players with outdated state (last update too long ago)
           repositoryDataForMissing <-
             playerRepository.readByPlayerIds(
               playerIdsMissingInState ++ playerIdsOutOfSequence,

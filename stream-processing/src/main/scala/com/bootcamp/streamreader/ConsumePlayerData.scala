@@ -8,8 +8,6 @@ import io.circe.parser.decode
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-import java.util.concurrent.atomic.AtomicLong
-
 object ConsumePlayerData {
   def of(
     kafkaConfig: KafkaConfig,
@@ -39,8 +37,6 @@ class ConsumePlayerData(
       .withGroupId(kafkaConfig.groupId)
       .withClientId(kafkaConfig.clientId)
 
-  val counter = new AtomicLong(0L)
-
   val stream =
     KafkaConsumer
       .stream(consumerSettings)
@@ -50,13 +46,6 @@ class ConsumePlayerData(
         kafkaConfig.chunkSize,
         kafkaConfig.chunkTimeout,
       )
-      // The below evalTap is only for demo purposes
-//      .evalTap(i =>
-//        IO {
-//          val tempCounter = counter.addAndGet(i.size.toLong)
-//          if (tempCounter % 1000 <= 50) println(s"Consumed $tempCounter messages, last is ${i.last.get.record.value}")
-//        },
-//      )
       .evalMap { chunk =>
         val playerRounds: IO[Seq[Either[(Throwable, String), (PlayerId, PlayerGameRound)]]] = IO {
 
