@@ -112,12 +112,14 @@ object PlayerRepository {
 
         def store(data: Seq[PlayerSessionProfile]): IO[Unit] = {
           def getTTL =
-            Instant.now().atZone(ZoneId.of("UTC")).plusSeconds(config.timeToLiveSeconds.toSeconds).toEpochSecond
-          def createDbInsertItem(profile: PlayerSessionProfile): Item = new Item()
+            IO.realTimeInstant
+              .map(now => now.atZone(ZoneId.of("UTC")).plusSeconds(config.timeToLiveSeconds.toSeconds).toEpochSecond)
+
+          def createDbInsertItem(profile: PlayerSessionProfile, ttl: Long): Item = new Item()
             .withPrimaryKey(new PrimaryKey().addComponent("playerId", profile.playerId.id))
             .withNumber("cluster", profile.playerCluster.value)
             .withBinary("gzipprofile", compress(profile.asJson.noSpaces))
-            .withNumber("expireAt", getTTL)
+            .withNumber("expireAt", ttl)
 
           def storeWithRetry(outcome: IO[BatchWriteItemOutcome], maxRetries: Int = 5): IO[BatchWriteItemOutcome] =
             outcome
@@ -146,11 +148,13 @@ object PlayerRepository {
             .grouped(25)
             .toList
             .parTraverse_ { chunk =>
-              val writeItems: Seq[Item] =
-                chunk.foldLeft(Seq.empty[Item])((acc, c) => acc ++ Seq(createDbInsertItem(c)))
-              val tableWriteItems = new TableWriteItems(profilesTable.getTableName)
-                .withItemsToPut(writeItems.asJavaCollection)
-              storeWithRetry(IO(db.batchWriteItem(tableWriteItems)), config.maxRetries)
+              for {
+                now <- getTTL
+                writeItems = chunk.foldLeft(Seq.empty[Item])((acc, c) => acc ++ Seq(createDbInsertItem(c, now)))
+                tableWriteItems = new TableWriteItems(profilesTable.getTableName)
+                  .withItemsToPut(writeItems.asJavaCollection)
+                _ <- storeWithRetry(IO(db.batchWriteItem(tableWriteItems)), config.maxRetries)
+              } yield ()
             }
         }
 
