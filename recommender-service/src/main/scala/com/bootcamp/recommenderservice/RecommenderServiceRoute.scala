@@ -23,8 +23,7 @@ import org.http4s.server._
 
 import scala.language.higherKinds
 
-class RecommenderServiceRoute[F[_]: MonadThrow: Applicative: LiftIO](playerRepository: PlayerRepository)
-    extends Http4sDsl[F] {
+class RecommenderServiceRoute[F[_]: MonadThrow: LiftIO](playerRepository: PlayerRepository) extends Http4sDsl[F] {
 
   def apply: HttpRoutes[F] =
     HttpRoutes
