@@ -40,8 +40,6 @@ object Dependencies {
   )
 
   val httpLibs = Seq(
-    "org.http4s"    %% "http4s-ember-server" % http4sVersion,
-    "org.http4s"    %% "http4s-ember-client" % http4sVersion,
     "org.http4s"    %% "http4s-blaze-server" % http4sVersion,
     "org.http4s"    %% "http4s-circe"        % http4sVersion,
     "org.http4s"    %% "http4s-dsl"          % http4sVersion,

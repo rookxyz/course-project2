@@ -1,33 +1,51 @@
 package com.bootcamp.recommenderservice
 
-import cats.data.Kleisli
-import cats.effect.IO
-import com.bootcamp.domain.PlayerId
+import cats.{Applicative, Monad, MonadError, MonadThrow}
+import cats.data.{Kleisli, OptionT}
+import cats.effect.{IO, LiftIO}
+import cats.implicits.toFlatMapOps
+import com.bootcamp.domain.{PlayerId, PlayerSessionProfile}
 import com.bootcamp.playerrepository.PlayerRepository
 import io.circe.Json
+import io.circe.generic.auto._
+import io.circe.syntax._
 import io.circe.syntax.EncoderOps
-import org.http4s.{HttpRoutes, Request, Response}
-import org.http4s.dsl.io._
-import org.http4s.server.Router
+import cats._
+import cats.effect._
+import cats.implicits._
+import org.http4s.circe._
+import org.http4s._
+import org.http4s.dsl._
+import org.http4s.dsl.impl._
+import org.http4s.headers._
+import org.http4s.implicits._
+import org.http4s.server._
 
-class RecommenderServiceRoute(playerRepository: PlayerRepository) {
-  def apply: HttpRoutes[IO] =
+import scala.language.higherKinds
+
+class RecommenderServiceRoute[F[_]: MonadThrow: LiftIO](playerRepository: PlayerRepository) extends Http4sDsl[F] {
+
+  def apply: HttpRoutes[F] =
     HttpRoutes
-      .of[IO] { case GET -> Root / "recommender" / "playerId" / id =>
+      .of[F] { case GET -> Root / "recommender" / "playerId" / id =>
         val playerId = PlayerId(id)
         (for {
-          playerProfile <- playerRepository.readByPlayerId(playerId)
-          playerCluster <- IO(playerProfile.get.playerCluster).handleErrorWith(e => throw e)
-          playersWithCluster <- playerRepository.readPlayersByCluster(playerCluster)
-          playerUnseenGameTypesSorted = GetPlayerRecommendations.apply(playerId, playersWithCluster)
-          responseJson: Json = playerUnseenGameTypesSorted.asJson
+          profile <- LiftIO[F].liftIO(playerRepository.readByPlayerId(playerId))
+          playerSessionProfile <- MonadThrow[F].fromOption(profile, new Throwable(s"Player has no cluster"))
+          playerCluster <- Monad[F].pure(playerSessionProfile.playerCluster)
+          playersWithCluster <- LiftIO[F].liftIO(playerRepository.readPlayersByCluster(playerCluster))
+          playerUnseenGameTypesSorted <- Monad[F].pure(GetPlayerRecommendations.apply(playerId, playersWithCluster))
+          responseJson <- Monad[F].pure(playerUnseenGameTypesSorted.asJson)
           response <- if (playerUnseenGameTypesSorted.nonEmpty) Ok(responseJson.noSpaces) else Ok("null")
         } yield response).handleErrorWith(_ => NotFound())
       }
 }
 
 object RecommenderServiceRoute {
-  val httpApp: PlayerRepository => Kleisli[IO, Request[IO], Response[IO]] = (r: PlayerRepository) =>
-    Router("/" -> RecommenderServiceRoute(r)).orNotFound
-  def apply(playerRepository: PlayerRepository): HttpRoutes[IO] = new RecommenderServiceRoute(playerRepository).apply
+  def apply[F[_]: MonadThrow: LiftIO](
+    playerRepository: PlayerRepository,
+  ): HttpApp[F] =
+    Router(
+      "/" -> new RecommenderServiceRoute[F](playerRepository).apply,
+    ).orNotFound
 }
