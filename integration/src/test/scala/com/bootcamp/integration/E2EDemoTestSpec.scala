@@ -29,6 +29,7 @@ import scala.concurrent.duration._
 import scala.math.BigDecimal.RoundingMode
 import ch.qos.logback.classic.{Level, Logger}
 import org.slf4j.LoggerFactory
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with TestContainerForEach {
   LoggerFactory
@@ -139,8 +140,9 @@ class E2EDemoTestSpec extends munit.CatsEffectSuite with EmbeddedKafka with Test
         val clusters: Int = 3
         val messages: Int = 5000
         CreateDynamoDbTables.fillClustersTable(tablesMap("clusters"), players, clusters)
+        implicit def logger = Slf4jLogger.getLogger[IO]
         val program = for {
-          _ <- IO.race(RunRecommenderHttpServer.run(Some(dbConfig)), IO.sleep(4.minutes)).start
+          _ <- IO.race(RunRecommenderHttpServer.run[IO](Some(dbConfig)), IO.sleep(4.minutes)).start
           _ <- RunStreamProcessingServer.run(Some(dbConfig), Some(kafkaConfig)).start
           _ <- publishGameRoundsToKafka(messages, players).traverse_(i => i)
         } yield ()

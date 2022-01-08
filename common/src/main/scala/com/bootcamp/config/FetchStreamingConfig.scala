@@ -1,5 +1,6 @@
 package com.bootcamp.config
 
+import cats.{Applicative, Monad, MonadThrow}
 import cats.effect.{IO, Sync}
 import com.typesafe.config.ConfigFactory
 import pureconfig.generic.ProductHint
@@ -23,4 +24,7 @@ object FetchRecommenderHttpConfig extends {
   implicit def hint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
   def apply: IO[RecommenderHttpConfig] =
     IO.delay(ConfigSource.default.at("application").loadOrThrow[RecommenderHttpConfig])
+
+  def applyF[F[_]: Applicative]: F[RecommenderHttpConfig] =
+    Applicative[F].pure(ConfigSource.default.at("application").loadOrThrow[RecommenderHttpConfig])
 }
